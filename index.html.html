@@ -496,10 +496,29 @@ function App(){
     timerRef.current=setTimeout(()=>setToast(t=>({...t,visible:false})),2200);
   };
 
-  // Reset palette when tone or rule changes so stale preview never lingers
+  // Auto-regenerate palette instantly when tone, rule, or selected colours change
+  // AI insight only re-fires if colours actually changed (not just tone/rule tweak)
+  const prevSelectedRef=useRef([]);
   useEffect(()=>{
-    if(generated){ setGenerated(false);setSuggestions([]);setAiInsight(""); }
-  },[tone,rule]);
+    if(!selected.length) return;
+    const sugg=generateSuggestions(selected,rule,tone);
+    setSuggestions(sugg);
+    setGenerated(true);
+    // Only re-fire AI insight when selected colours change, not every tone/rule tweak
+    const coloursChanged=JSON.stringify(selected)!==JSON.stringify(prevSelectedRef.current);
+    if(coloursChanged){
+      prevSelectedRef.current=selected;
+      setAiInsight("");
+      setInsightLoading(true);
+      const prompt=`You are a colour consultant for architects and interior designers. Base colours: ${selected.join(", ")}. Harmony rule: ${rule}. Suggested additions: ${sugg.join(", ")}. In 2-3 sentences, describe the mood/atmosphere this palette creates and suggest ONE ideal use case (e.g. a hotel lobby, a residential living room, a product UI). Be evocative and specific. Use design language. No hex values.`;
+      fetch("https://api.anthropic.com/v1/messages",{
+        method:"POST",headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:1000,messages:[{role:"user",content:prompt}]})
+      }).then(r=>r.json()).then(d=>{
+        setAiInsight(d.content?.map(b=>b.text||"").join("").trim()||"");
+      }).catch(()=>{}).finally(()=>setInsightLoading(false));
+    }
+  },[tone,rule,selected]);
 
   const toggleColor=color=>{
     setSelected(prev=>{
@@ -584,17 +603,41 @@ function App(){
         @keyframes bounce{0%,80%,100%{transform:translateY(0)}40%{transform:translateY(-6px)}}
         .saved-card{background:${T.savedCardBg};border:1px solid ${T.savedCardBorder};border-radius:10px;padding:12px;cursor:pointer;transition:border-color .15s;}
         .saved-card:hover{border-color:${T.savedCardBorderHover};}
+        /* ── Responsive ── */
+        @media(max-width:768px){
+          .main-grid{grid-template-columns:1fr !important;}
+          .right-panel{border-left:none !important;border-top:1px solid ${T.border} !important;}
+          .header-pad{padding:20px 20px 18px !important;}
+          .left-pad{padding:24px 20px !important;border-right:none !important;}
+          .right-pad{padding:24px 20px !important;}
+          .drawer-pad{padding:18px 20px !important;}
+          .mockup-pad{padding:28px 20px 40px !important;}
+          .hero-grid{grid-template-columns:1fr !important;}
+          .hero-img{display:none !important;}
+          .cards-grid{grid-template-columns:repeat(2,1fr) !important;}
+          .header-title{font-size:32px !important;}
+          .header-sub{font-size:10px !important;}
+          .header-buttons{flex-wrap:wrap;gap:6px !important;}
+          .tone-grid{grid-template-columns:repeat(2,1fr) !important;}
+          .gen-btn{width:100% !important;}
+          .swatch-dot{width:30px !important;height:30px !important;}
+        }
+        @media(max-width:480px){
+          .cards-grid{grid-template-columns:1fr !important;}
+          .header-title{font-size:26px !important;}
+          .stats-row{gap:12px !important;flex-wrap:wrap;}
+        }
       `}</style>
 
       {/* HEADER */}
-      <div style={{padding:"36px 48px 28px",borderBottom:"1px solid #E2DDD8"}}>
+      <div className="header-pad" style={{padding:"36px 48px 28px",borderBottom:"1px solid #E2DDD8"}}>
         <div style={{marginBottom:6,fontSize:11,color:T.labelMid,letterSpacing:"0.15em",textTransform:"uppercase",fontWeight:500}}>◆ Colour Intelligence</div>
         <div style={{display:"flex",alignItems:"baseline",gap:12,marginBottom:6}}>
-          <h1 style={{fontSize:48,fontWeight:800,letterSpacing:"-0.02em",lineHeight:1,color:T.textPrimary}}>SQUARE</h1>
-          <h1 style={{fontSize:48,fontWeight:300,letterSpacing:"-0.01em",lineHeight:1,color:T.textMuted}}>Colour Studio</h1>
+          <h1 className="header-title" style={{fontSize:48,fontWeight:800,letterSpacing:"-0.02em",lineHeight:1,color:T.textPrimary}}>SQUARE</h1>
+          <h1 className="header-title" style={{fontSize:48,fontWeight:300,letterSpacing:"-0.01em",lineHeight:1,color:T.textMuted}}>Colour Studio</h1>
         </div>
-        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:10}}>
-          <p style={{fontSize:13,color:T.textMuted,fontWeight:300,letterSpacing:"0.04em"}}>for architects, interiors & UX designers</p>
+        <div className="header-buttons" style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:10}}>
+          <p className="header-sub" style={{fontSize:13,color:T.textMuted,fontWeight:300,letterSpacing:"0.04em"}}>for architects, interiors & UX designers</p>
           <button onClick={()=>setShowSaved(v=>!v)}
             style={{display:"flex",alignItems:"center",gap:6,background:showSaved?"#D4CEC8":"#E2DDD8",border:"1px solid #B8AFA8",
               color:showSaved?T.accent:T.textMuted,padding:"7px 14px",borderRadius:40,cursor:"pointer",
@@ -615,7 +658,7 @@ function App(){
 
       {/* SAVED PALETTES DRAWER */}
       {showSaved&&(
-        <div style={{background:T.drawerBg,borderBottom:`1px solid ${T.border2}`,padding:"24px 48px"}}>
+        <div className="drawer-pad" style={{background:T.drawerBg,borderBottom:`1px solid ${T.border2}`,padding:"24px 48px"}}>
           <div style={{fontSize:10,color:T.labelHi,letterSpacing:"0.14em",textTransform:"uppercase",fontWeight:600,marginBottom:16}}>Saved Palettes</div>
           {savedPalettes.length===0?(
             <div style={{fontStyle:"italic",fontSize:13,color:T.textDim,fontWeight:300}}>No saved palettes yet — generate one and save it below.</div>
@@ -640,10 +683,10 @@ function App(){
         </div>
       )}
 
-      <div style={{display:"grid",gridTemplateColumns:"1fr 380px",minHeight:"calc(100vh - 160px)"}}>
+      <div className="main-grid" style={{display:"grid",gridTemplateColumns:"1fr 380px",minHeight:"calc(100vh - 160px)"}}>
 
         {/* LEFT */}
-        <div style={{padding:"36px 48px",borderRight:"1px solid #E2DDD8",overflowY:"auto"}}>
+        <div className="left-pad" style={{padding:"36px 48px",borderRight:"1px solid #E2DDD8",overflowY:"auto"}}>
 
           {/* Selected */}
           <div style={{marginBottom:32}}>
@@ -681,7 +724,7 @@ function App(){
           {/* Tone */}
           <div style={{marginBottom:28}}>
             <div style={{fontSize:10,color:"#9A8878",letterSpacing:"0.14em",textTransform:"uppercase",marginBottom:12,fontWeight:600}}>Colour Tone</div>
-            <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:6}}>
+            <div className="tone-grid" style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:6}}>
               {TONES.map(t=>(
                 <button key={t.id} onClick={()=>setTone(t.id)}
                   style={{padding:"10px 8px",borderRadius:8,border:`1px solid ${tone===t.id?"#2A1A10":"#C8C0B8"}`,
@@ -708,7 +751,7 @@ function App(){
           {/* Generate */}
           <div style={{marginBottom:40}}>
             <button className="gen-btn" onClick={handleGenerate} disabled={selected.length===0||loading}>
-              {loading?"Analysing…":"Generate Palette →"}
+              {loading?"Analysing…":generated?"Regenerate & Refresh AI ↺":"Generate Palette →"}
             </button>
           </div>
 
@@ -733,7 +776,7 @@ function App(){
         </div>
 
         {/* RIGHT */}
-        <div style={{padding:"36px 32px",background:T.panelBg,overflowY:"auto",display:"flex",flexDirection:"column",gap:20}}>
+        <div className="right-pad right-panel" style={{padding:"36px 32px",background:T.panelBg,overflowY:"auto",display:"flex",flexDirection:"column",gap:20}}>
           <span style={{fontSize:10,color:"#8A6858",letterSpacing:"0.14em",textTransform:"uppercase",fontWeight:600}}>Palette Preview</span>
 
           {!generated&&!loading&&(
@@ -974,7 +1017,7 @@ function App(){
                   </div>
 
                   {/* HERO — SECONDARY (25%) as bg. Dominant bleeds in. Accent for tag + CTA. */}
-                  <div style={{background:secondary,padding:"44px 36px 40px",
+                  <div className="hero-grid" style={{background:secondary,padding:"44px 36px 40px",
                     display:"grid",gridTemplateColumns:"1fr 1fr",gap:36,alignItems:"center"}}>
                     <div>
                       {/* Tag — ACCENT bg at 18% opacity */}
@@ -1006,7 +1049,7 @@ function App(){
                       </div>
                     </div>
                     {/* Hero image block — DOMINANT large shape (60%), ACCENT overlay, POP dot */}
-                    <div style={{position:"relative",height:190}}>
+                    <div className="hero-img" style={{position:"relative",height:190}}>
                       {/* Large bg shape — DOMINANT */}
                       <div style={{position:"absolute",right:0,top:0,width:"88%",height:"95%",
                         borderRadius:16,background:dominant,
@@ -1034,7 +1077,7 @@ function App(){
                   <div style={{padding:"28px 36px",background:dominant}}>
                     <div style={{fontSize:10,fontWeight:600,letterSpacing:"0.12em",
                       color:`${domText}55`,textTransform:"uppercase",marginBottom:16}}>Featured Work</div>
-                    <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:12}}>
+                    <div className="cards-grid" style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:12}}>
                       {[
                         {label:"Residential", sub:"Interior Design",  stripe:accent},
                         {label:"Commercial",  sub:"Architecture",      stripe:support},
@@ -1062,7 +1105,7 @@ function App(){
                   </div>
 
                   {/* STATS — SECONDARY band (25%). Numbers in ACCENT. Labels in SUPPORT. */}
-                  <div style={{background:secondary,padding:"18px 36px",
+                  <div className="stats-row" style={{background:secondary,padding:"18px 36px",
                     display:"flex",justifyContent:"space-around",alignItems:"center"}}>
                     {[["18+","Years"],["240","Projects"],["12","Awards"],["4","Countries"]].map(([n,l],i)=>(
                       <div key={i} style={{textAlign:"center"}}>
