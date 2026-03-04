@@ -63,7 +63,7 @@
         };
 
         const App = () => {
-            // USER'S PERSONAL API KEY STATE
+            // USER'S PERSONAL API KEY STATE (Saved in browser localStorage)
             const [apiKey, setApiKey] = useState(localStorage.getItem('square_gemini_key') || '');
             const [showKeyModal, setShowKeyModal] = useState(false);
             const [tempKeyInput, setTempKeyInput] = useState('');
@@ -125,10 +125,8 @@
                     throw new Error("API_KEY_MISSING");
                 }
                 
-                const models = (apiKey && apiKey.length > 20) 
-                    ? ["gemini-2.5-flash", "gemini-1.5-flash-latest", "gemini-2.0-flash", "gemini-pro", "gemini-1.5-flash"] 
-                    : ["gemini-2.5-flash-preview-09-2025"];
-
+                // For personal keys, we try the most stable models first
+                const models = ["gemini-1.5-flash-latest", "gemini-1.5-flash", "gemini-2.0-flash", "gemini-pro"];
                 let lastError;
 
                 for (const model of models) {
@@ -157,9 +155,7 @@
                             await new Promise(r => setTimeout(r, delay));
                             return callGemini(payload, retries - 1, delay * 2);
                         }
-                        if (!error.message.toLowerCase().includes("not found")) {
-                            break;
-                        }
+                        if (!error.message.toLowerCase().includes("not found")) break;
                     }
                 }
                 throw lastError;
@@ -243,25 +239,20 @@
                 }
             };
 
-            // GOOGLE SLIDES INTEGRATION LOGIC
             const applyToGoogleSlides = () => {
                 setSlidesStatus('applying');
-                
-                // Broadcast the palette to the parent window (the Google Slides iframe)
+                // Broadcast the palette to the parent window (the Google Slides sidebar)
                 if (window.parent !== window) {
                     window.parent.postMessage({ action: 'APPLY_PALETTE', palette: palette }, '*');
-                    
-                    // Temporarily show success state
                     setTimeout(() => { 
                         setSlidesStatus('success'); 
-                        showToast("Palette pushed to Google Slides!");
-                        setTimeout(() => setSlidesStatus('idle'), 3000); 
+                        showToast("Palette pushed! Ensure slide shapes use 'Theme Colors'.");
+                        setTimeout(() => setSlidesStatus('idle'), 4000); 
                     }, 1000);
                 } else {
-                    // If testing outside of Google Slides on Vercel/Local
                     setTimeout(() => { 
                         setSlidesStatus('success'); 
-                        showToast("Simulation: Open this app inside Google Slides to apply.");
+                        showToast("Simulation: Open inside Slides to sync.");
                         setTimeout(() => setSlidesStatus('idle'), 3000); 
                     }, 1500);
                 }
@@ -289,57 +280,30 @@
                         <div className="flex items-center gap-3">
                             <button onClick={() => setViewMode(viewMode === 'palette' ? 'preview' : 'palette')} className="px-4 py-2 text-sm font-semibold rounded-full border border-slate-200 hover:bg-slate-50 flex items-center gap-2">
                                 <Icon name={viewMode === 'palette' ? 'layout' : 'aperture'} size={16} />
-                                {viewMode === 'palette' ? 'Live Preview' : 'Edit Design'}
+                                {viewMode === 'palette' ? 'Preview' : 'Design'}
                             </button>
                             <button onClick={() => setShowExportModal(true)} className="px-4 py-2 text-sm font-semibold rounded-full bg-slate-100 hover:bg-slate-200 flex items-center gap-2 text-blue-600">
-                                <Icon name="share-2" size={16} /> Export Code
+                                <Icon name="share-2" size={16} /> Export
                             </button>
-                            <button onClick={handleSavePalette} className="p-2 text-slate-400 hover:text-black" title="Save Palette">
-                                <Icon name="bookmark" size={22} />
-                            </button>
-                            <button onClick={() => {setTempKeyInput(apiKey); setShowKeyModal(true);}} className={`p-2 transition-colors ${apiKey ? 'text-green-500' : 'text-slate-400 hover:text-black'}`} title="AI Settings">
-                                <Icon name="key" size={22} />
-                            </button>
+                            <button onClick={handleSavePalette} className="p-2 text-slate-400 hover:text-black" title="Save Palette"><Icon name="bookmark" size={22} /></button>
+                            <button onClick={() => {setTempKeyInput(apiKey); setShowKeyModal(true);}} className={`p-2 transition-colors ${apiKey ? 'text-green-500' : 'text-slate-400 hover:text-black'}`} title="AI Settings"><Icon name="key" size={22} /></button>
                         </div>
                     </header>
 
                     <main className="max-w-7xl mx-auto p-6 mt-6">
-                        
-                        {/* AI Generation Bar */}
                         <div className="mb-8 flex flex-col md:flex-row gap-4">
                             <div className="flex-1 bg-white p-2 rounded-3xl border border-slate-200 shadow-sm flex items-center gap-2">
                                 <div className="flex-1 relative">
-                                    <input 
-                                        type="text" 
-                                        placeholder="Mood prompt (e.g., 'Modernism in Kolkata')" 
-                                        className="w-full pl-12 pr-4 py-3 bg-transparent outline-none font-medium text-sm" 
-                                        value={prompt} 
-                                        onChange={(e) => setPrompt(e.target.value)} 
-                                        onKeyPress={(e) => e.key === 'Enter' && handleAiGenerate()} 
-                                    />
+                                    <input type="text" placeholder="Mood prompt..." className="w-full pl-12 pr-4 py-3 bg-transparent outline-none font-medium text-sm" value={prompt} onChange={(e) => setPrompt(e.target.value)} onKeyPress={(e) => e.key === 'Enter' && handleAiGenerate()} />
                                     <Icon name="star" className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" size={20} />
                                 </div>
-                                <button 
-                                    onClick={handleAiGenerate} 
-                                    disabled={isGenerating || !prompt.trim()} 
-                                    className="px-6 py-3 bg-black text-white rounded-2xl font-bold flex items-center gap-2 text-sm hover:bg-slate-800 disabled:opacity-50"
-                                >
-                                    {isGenerating ? <Icon name="loader" className="animate-spin" size={18} /> : <Icon name="send" size={18} />} 
-                                    Generate
+                                <button onClick={handleAiGenerate} disabled={isGenerating || !prompt.trim()} className="px-6 py-3 bg-black text-white rounded-2xl font-bold flex items-center gap-2 text-sm hover:bg-slate-800 disabled:opacity-50">
+                                    {isGenerating ? <Icon name="loader" className="animate-spin" size={18} /> : <Icon name="send" size={18} />} Generate
                                 </button>
                             </div>
-                            
-                            {/* Complete Palette Button */}
-                            <button 
-                                onClick={handleAiComplete}
-                                disabled={isGenerating || lockedIndices.length === 0}
-                                className="bg-white border-2 border-dashed border-slate-200 rounded-3xl px-6 py-2 flex items-center justify-center gap-3 font-bold text-slate-500 hover:border-black hover:text-black transition-all disabled:opacity-30"
-                            >
+                            <button onClick={handleAiComplete} disabled={isGenerating || lockedIndices.length === 0} className="bg-white border-2 border-dashed border-slate-200 rounded-3xl px-6 py-2 flex items-center justify-center gap-3 font-bold text-slate-500 hover:border-black transition-all disabled:opacity-30">
                                 <Icon name="zap" size={18} className={lockedIndices.length > 0 ? "text-yellow-500" : ""} />
-                                <div className="text-left leading-tight">
-                                    <span className="block text-xs uppercase tracking-tighter opacity-60">AI Assist</span>
-                                    <span className="text-sm">Complete Palette</span>
-                                </div>
+                                <div className="text-left leading-tight"><span className="block text-xs uppercase tracking-tighter opacity-60">AI Assist</span><span className="text-sm">Complete Palette</span></div>
                             </button>
                         </div>
 
@@ -348,28 +312,20 @@
                                 <div className="grid grid-cols-1 md:grid-cols-5 h-[450px] rounded-[40px] overflow-hidden shadow-2xl bg-white border-8 border-white">
                                     {palette.map((color, idx) => (
                                         <div key={idx} style={{ backgroundColor: color }} className="group relative flex flex-col items-center justify-between py-10 transition-all hover:flex-[1.2]">
-                                            <button onClick={() => toggleLock(idx)} className={`p-3 rounded-full ${lockedIndices.includes(idx) ? 'bg-black text-white' : 'bg-white/20 text-white opacity-0 group-hover:opacity-100'}`}>
-                                                <Icon name={lockedIndices.includes(idx) ? 'lock' : 'unlock'} size={20} />
-                                            </button>
+                                            <button onClick={() => toggleLock(idx)} className={`p-3 rounded-full ${lockedIndices.includes(idx) ? 'bg-black text-white' : 'bg-white/20 text-white opacity-0 group-hover:opacity-100'}`}><Icon name={lockedIndices.includes(idx) ? 'lock' : 'unlock'} size={20} /></button>
                                             <div className="flex flex-col items-center gap-4">
-                                                <button onClick={() => copyToClipboard(color)} className="opacity-0 group-hover:opacity-100 bg-white/20 p-3 rounded-full text-white border border-white/30 hover:bg-white/40">
-                                                    <Icon name="copy" size={20} />
-                                                </button>
-                                                <div className="bg-black/90 text-white px-4 py-2 rounded-xl font-mono text-xs tracking-widest shadow-lg">
-                                                    {color}
-                                                </div>
+                                                <button onClick={() => copyToClipboard(color)} className="opacity-0 group-hover:opacity-100 bg-white/20 p-3 rounded-full text-white border border-white/30 hover:bg-white/40"><Icon name="copy" size={20} /></button>
+                                                <div className="bg-black/90 text-white px-4 py-2 rounded-xl font-mono text-xs tracking-widest shadow-lg">{color}</div>
                                             </div>
                                         </div>
                                     ))}
                                 </div>
-
                                 <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
                                     <div className="lg:col-span-1 space-y-4">
                                         <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2"><Icon name="users" size={14} className="text-blue-500" /> Local Studio</h3>
                                         <div className="grid grid-cols-1 gap-3 max-h-[500px] overflow-y-auto pr-2 custom-scrollbar">
-                                            {savedPalettes.length === 0 && <p className="text-xs text-slate-400 italic">No saved palettes yet.</p>}
                                             {savedPalettes.map(p => (
-                                                <button key={p.id} onClick={() => {setPalette(p.colors); setThemeName(p.name); setLockedIndices([]);}} className="bg-white p-4 rounded-2xl border border-slate-200 hover:border-black text-left group">
+                                                <button key={p.id} onClick={() => {setPalette(p.colors); setThemeName(p.name);}} className="bg-white p-4 rounded-2xl border border-slate-200 hover:border-black text-left">
                                                     <div className="flex gap-1 h-4 mb-2 rounded-md overflow-hidden">{p.colors.map((c, i) => <div key={i} style={{ backgroundColor: c }} className="flex-1" />)}</div>
                                                     <span className="text-xs font-bold block">{p.name}</span>
                                                 </button>
@@ -379,17 +335,13 @@
                                     <div className="lg:col-span-3 space-y-4">
                                         <div className="flex justify-between items-center">
                                             <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2"><Icon name="layers" size={14} /> Design Reference</h3>
-                                            
-                                            {/* PUSH TO SLIDES BUTTON */}
-                                            <button onClick={applyToGoogleSlides} disabled={slidesStatus === 'applying'} className="flex items-center gap-2 px-6 py-2 bg-amber-500 text-white rounded-full font-bold text-xs shadow-md hover:bg-amber-600 disabled:opacity-50">
-                                                {slidesStatus === 'applying' ? <Icon name="loader" className="animate-spin" size={14} /> : slidesStatus === 'success' ? <Icon name="check" size={14} /> : <Icon name="airplay" size={14} />} 
-                                                {slidesStatus === 'success' ? 'Applied!' : 'Push to Slides'}
+                                            <button onClick={applyToGoogleSlides} disabled={slidesStatus === 'applying'} className="flex items-center gap-2 px-6 py-2 bg-amber-500 text-white rounded-full font-bold text-xs shadow-md hover:bg-amber-600 transition-all disabled:opacity-50">
+                                                {slidesStatus === 'applying' ? <Icon name="loader" className="animate-spin" size={14} /> : slidesStatus === 'success' ? <Icon name="check" size={14} /> : <Icon name="airplay" size={14} />} {slidesStatus === 'success' ? 'Applied!' : 'Push to Slides'}
                                             </button>
-
                                         </div>
                                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                                             {Object.keys(ARCHITECTURAL_THEMES).map(key => (
-                                                <button key={key} onClick={() => {setPalette(ARCHITECTURAL_THEMES[key].colors); setThemeName(ARCHITECTURAL_THEMES[key].name); setLockedIndices([]);}} className="bg-white p-5 rounded-3xl border border-slate-200 hover:shadow-xl text-left group transition-all">
+                                                <button key={key} onClick={() => {setPalette(ARCHITECTURAL_THEMES[key].colors); setThemeName(ARCHITECTURAL_THEMES[key].name);}} className="bg-white p-5 rounded-3xl border border-slate-200 hover:shadow-xl text-left group transition-all">
                                                     <div className="flex gap-1 h-10 mb-4 rounded-xl overflow-hidden group-hover:scale-[1.02] transition-transform">{ARCHITECTURAL_THEMES[key].colors.map((c, i) => <div key={i} style={{ backgroundColor: c }} className="flex-1" />)}</div>
                                                     <h4 className="font-bold text-sm mb-1">{ARCHITECTURAL_THEMES[key].name}</h4>
                                                     <p className="text-[10px] text-slate-400 leading-tight">{ARCHITECTURAL_THEMES[key].description}</p>
@@ -404,18 +356,13 @@
                                 <div className="lg:col-span-2">
                                     <div className="rounded-[60px] p-16 min-h-[600px] shadow-2xl relative overflow-hidden flex flex-col transition-all duration-700" style={{ backgroundColor: palette[1], color: palette[4] }}>
                                         <div className="flex justify-between items-center mb-24 relative z-10">
-                                            <div className="flex items-center gap-4">
-                                                <SquareLogo bgColor={palette[0]} color={palette[1]} className="w-12 h-12" />
-                                                <span className="font-black text-2xl tracking-tighter">SQUARE</span>
-                                            </div>
-                                            <nav className="flex gap-10 font-bold text-[10px] uppercase tracking-[0.3em] opacity-60">
-                                                <span>Manifesto</span><span>Archives</span><span>Atelier</span>
-                                            </nav>
+                                            <div className="flex items-center gap-4"><SquareLogo bgColor={palette[0]} color={palette[1]} className="w-12 h-12" /><span className="font-black text-2xl tracking-tighter">SQUARE</span></div>
+                                            <nav className="flex gap-10 font-bold text-[10px] uppercase tracking-[0.3em] opacity-60"><span>Manifesto</span><span>Archives</span><span>Atelier</span></nav>
                                         </div>
                                         <div className="max-w-2xl mt-auto z-10 relative">
                                             <h2 className="text-8xl font-black mb-8 leading-[0.85] tracking-tighter" style={{ color: palette[0] }}>{themeName.split(' ')[0]} <br /> Aesthetics.</h2>
                                             <p className="text-2xl opacity-70 mb-12 font-medium max-w-md leading-relaxed">Developing spatial identities through precise color engineering.</p>
-                                            <button className="px-12 py-6 rounded-3xl font-bold shadow-2xl hover:scale-105 transition-transform" style={{ backgroundColor: palette[0], color: palette[1] }}>Initialize Project</button>
+                                            <button className="px-12 py-6 rounded-3xl font-bold shadow-2xl transition-all hover:scale-105" style={{ backgroundColor: palette[0], color: palette[1] }}>Initialize Project</button>
                                         </div>
                                         <div className="absolute -right-40 -bottom-20 w-[600px] h-[600px] rounded-full blur-[160px] opacity-30 transition-colors duration-1000" style={{ backgroundColor: palette[2] }} />
                                     </div>
@@ -439,71 +386,22 @@
                         )}
                     </main>
 
-                    {showExportModal && (
-                        <div className="fixed inset-0 z-50 flex items-center justify-center p-6">
-                            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowExportModal(false)} />
-                            <div className="relative bg-white w-full max-w-2xl rounded-[40px] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
-                                <div className="p-8 border-b flex justify-between items-center">
-                                    <div><h3 className="font-bold text-2xl tracking-tight">Handover Code</h3><p className="text-sm text-slate-500">Copy these snippets and send them to your engineering team.</p></div>
-                                    <button onClick={() => setShowExportModal(false)} className="p-2 hover:bg-slate-100 rounded-full transition-colors"><Icon name="x" size={24} /></button>
-                                </div>
-                                <div className="p-8 space-y-8">
-                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                        {['css', 'tailwind', 'json'].map((type) => (
-                                            <div key={type} className="space-y-3">
-                                                <div className="flex justify-between items-center"><span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">{type}</span><button onClick={() => copyToClipboard(getExportData(type))} className="p-2 text-slate-400 hover:text-black transition-colors"><Icon name="copy" size={16} /></button></div>
-                                                <pre className="bg-slate-50 p-4 rounded-2xl text-[10px] font-mono overflow-x-auto border border-slate-100 h-40">{getExportData(type)}</pre>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    )}
-
-                    {/* API Key Modal */}
                     {showKeyModal && (
                         <div className="fixed inset-0 z-50 flex items-center justify-center p-6">
                             <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowKeyModal(false)} />
-                            <div className="relative bg-white w-full max-w-md rounded-[32px] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 p-8">
-                                <div className="flex justify-between items-center mb-6">
-                                    <h3 className="font-bold text-xl flex items-center gap-2"><Icon name="key" size={20} className="text-blue-500"/> Connect AI Engine</h3>
-                                    <button onClick={() => setShowKeyModal(false)} className="p-2 hover:bg-slate-100 rounded-full transition-colors"><Icon name="x" size={20} /></button>
-                                </div>
-                                <div className="space-y-4">
-                                    <p className="text-sm text-slate-600 leading-relaxed">
-                                        To use the AI Palette Generator, you need a free Gemini API key. This key is saved <strong>only in your browser</strong> and is never sent to Square's servers.
-                                    </p>
-                                    <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 text-xs text-slate-500 mb-4">
-                                        <ol className="list-decimal pl-4 space-y-1">
-                                            <li>Go to <a href="https://aistudio.google.com/" target="_blank" className="text-blue-500 hover:underline">Google AI Studio</a>.</li>
-                                            <li>Sign in and click "Get API key".</li>
-                                            <li>Paste it below.</li>
-                                        </ol>
-                                    </div>
-                                    <input 
-                                        type="password" 
-                                        placeholder="AIzaSy..." 
-                                        className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:border-black font-mono text-sm"
-                                        value={tempKeyInput}
-                                        onChange={(e) => setTempKeyInput(e.target.value)}
-                                    />
-                                    <button 
-                                        onClick={saveApiKey}
-                                        disabled={!tempKeyInput.trim()}
-                                        className="w-full py-3 bg-black text-white rounded-2xl font-bold hover:bg-slate-800 disabled:opacity-50 transition-all"
-                                    >
-                                        Save Key Securely
-                                    </button>
+                            <div className="relative bg-white w-full max-w-md rounded-[32px] shadow-2xl p-8">
+                                <div className="flex justify-between items-center mb-6"><h3 className="font-bold text-xl flex items-center gap-2"><Icon name="key" size={20} className="text-blue-500"/> Connect AI Engine</h3><button onClick={() => setShowKeyModal(false)} className="p-2 hover:bg-slate-100 rounded-full"><Icon name="x" size={20} /></button></div>
+                                <div className="space-y-4 text-sm text-slate-600">
+                                    <p>Get a free Gemini API key from <a href="https://aistudio.google.com/" target="_blank" className="text-blue-500 hover:underline">Google AI Studio</a> to use AI features. Your key is saved locally in your browser.</p>
+                                    <input type="password" placeholder="AIzaSy..." className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:border-black font-mono" value={tempKeyInput} onChange={(e) => setTempKeyInput(e.target.value)} />
+                                    <button onClick={saveApiKey} disabled={!tempKeyInput.trim()} className="w-full py-3 bg-black text-white rounded-2xl font-bold hover:bg-slate-800 disabled:opacity-50">Save Key Securely</button>
                                 </div>
                             </div>
                         </div>
                     )}
 
                     {toastMsg && (
-                        <div className="fixed bottom-8 left-1/2 -translate-x-1/2 bg-black text-white px-8 py-4 rounded-full flex items-center gap-4 shadow-2xl z-[60] font-bold text-sm tracking-wide">
-                           {toastMsg}
-                        </div>
+                        <div className="fixed bottom-8 left-1/2 -translate-x-1/2 bg-black text-white px-8 py-4 rounded-full flex items-center gap-4 shadow-2xl z-[60] font-bold text-sm tracking-wide">{toastMsg}</div>
                     )}
                 </div>
             );
