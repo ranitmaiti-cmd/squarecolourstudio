@@ -5,14 +5,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SQUARE Color Studio</title>
     <!-- Load Tailwind CSS -->
-    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="[https://cdn.tailwindcss.com](https://cdn.tailwindcss.com)"></script>
     <!-- Load React -->
-    <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
-    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+    <script src="[https://unpkg.com/react@18/umd/react.production.min.js](https://unpkg.com/react@18/umd/react.production.min.js)" crossorigin></script>
+    <script src="[https://unpkg.com/react-dom@18/umd/react-dom.production.min.js](https://unpkg.com/react-dom@18/umd/react-dom.production.min.js)" crossorigin></script>
     <!-- Load Babel to compile JSX -->
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="[https://unpkg.com/@babel/standalone/babel.min.js](https://unpkg.com/@babel/standalone/babel.min.js)"></script>
     <!-- Load Feather Icons for easy standalone icons -->
-    <script src="https://unpkg.com/feather-icons"></script>
+    <script src="[https://unpkg.com/feather-icons](https://unpkg.com/feather-icons)"></script>
 
     <style>
         .custom-scrollbar::-webkit-scrollbar { width: 4px; }
@@ -167,7 +167,12 @@
                             }
                         }
                     });
-                    const data = JSON.parse(result.candidates?.[0]?.content?.parts?.[0]?.text || "{}");
+                    
+                    // Clean the response text to remove any markdown formatting blocks that break JSON.parse
+                    let rawText = result.candidates?.[0]?.content?.parts?.[0]?.text || "{}";
+                    rawText = rawText.replace(/```json/gi, '').replace(/```/g, '').trim();
+                    
+                    const data = JSON.parse(rawText);
                     if (data.colors && data.colors.length === 5) {
                         setPalette(data.colors);
                         setThemeName(data.themeName);
@@ -204,7 +209,12 @@
                             }
                         }
                     });
-                    const data = JSON.parse(result.candidates?.[0]?.content?.parts?.[0]?.text || "{}");
+                    
+                    // Clean the response text to remove any markdown formatting blocks that break JSON.parse
+                    let rawText = result.candidates?.[0]?.content?.parts?.[0]?.text || "{}";
+                    rawText = rawText.replace(/```json/gi, '').replace(/```/g, '').trim();
+                    
+                    const data = JSON.parse(rawText);
                     if (data.colors && data.colors.length === 5) {
                         // Strictly enforce that locked indices are preserved, even if AI makes a mistake
                         const finalPalette = data.colors.map((c, i) => lockedIndices.includes(i) ? palette[i] : c);
@@ -424,7 +434,7 @@
                                     </p>
                                     <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 text-xs text-slate-500 mb-4">
                                         <ol className="list-decimal pl-4 space-y-1">
-                                            <li>Go to <a href="https://aistudio.google.com/" target="_blank" className="text-blue-500 hover:underline">Google AI Studio</a>.</li>
+                                            <li>Go to <a href="[https://aistudio.google.com/](https://aistudio.google.com/)" target="_blank" className="text-blue-500 hover:underline">Google AI Studio</a>.</li>
                                             <li>Sign in and click "Get API key".</li>
                                             <li>Paste it below.</li>
                                         </ol>
