@@ -77,6 +77,7 @@
             const [showExportModal, setShowExportModal] = useState(false);
             const [savedPalettes, setSavedPalettes] = useState([]);
             const [toastMsg, setToastMsg] = useState(null);
+            const [slidesStatus, setSlidesStatus] = useState('idle');
 
             const showToast = (msg, duration = 4000) => {
                 setToastMsg(msg);
@@ -124,8 +125,6 @@
                     throw new Error("API_KEY_MISSING");
                 }
                 
-                // For personal keys, Google frequently updates the exact model endpoint names
-                // We use a "waterfall" approach to try the most common stable models until one works.
                 const models = (apiKey && apiKey.length > 20) 
                     ? ["gemini-2.5-flash", "gemini-1.5-flash-latest", "gemini-2.0-flash", "gemini-pro", "gemini-1.5-flash"] 
                     : ["gemini-2.5-flash-preview-09-2025"];
@@ -144,24 +143,20 @@
                             const errData = await response.json();
                             const errMsg = errData?.error?.message || `HTTP Error ${response.status}`;
                             
-                            // If the model is not found, catch it and loop to the next model
                             if (response.status === 404 || errMsg.toLowerCase().includes("not found")) {
                                 lastError = new Error(errMsg);
                                 continue; 
                             }
-                            // For API Key errors (400, 403), stop immediately
                             throw new Error(errMsg);
                         }
                         
                         return await response.json();
                     } catch (error) {
                         lastError = error;
-                        // If it's a network error or 500, retry the current model
                         if (error.message !== "API_KEY_MISSING" && !error.message.includes("not found") && !error.message.includes("API key") && retries > 0) {
                             await new Promise(r => setTimeout(r, delay));
                             return callGemini(payload, retries - 1, delay * 2);
                         }
-                        // Break out of the loop for auth errors
                         if (!error.message.toLowerCase().includes("not found")) {
                             break;
                         }
@@ -188,7 +183,6 @@
                         }
                     });
                     
-                    // Clean the response text to remove any markdown formatting blocks that break JSON.parse
                     let rawText = result.candidates?.[0]?.content?.parts?.[0]?.text || "{}";
                     rawText = rawText.replace(/```json/gi, '').replace(/```/g, '').trim();
                     
@@ -209,7 +203,6 @@
                 }
             };
 
-            // Enhanced AI Completion to respect specific locked indices
             const handleAiComplete = async () => {
                 setIsGenerating(true);
                 const lockedDetails = lockedIndices.map(i => `Position ${i + 1}: ${palette[i]}`).join(', ');
@@ -230,13 +223,11 @@
                         }
                     });
                     
-                    // Clean the response text to remove any markdown formatting blocks that break JSON.parse
                     let rawText = result.candidates?.[0]?.content?.parts?.[0]?.text || "{}";
                     rawText = rawText.replace(/```json/gi, '').replace(/```/g, '').trim();
                     
                     const data = JSON.parse(rawText);
                     if (data.colors && data.colors.length === 5) {
-                        // Strictly enforce that locked indices are preserved, even if AI makes a mistake
                         const finalPalette = data.colors.map((c, i) => lockedIndices.includes(i) ? palette[i] : c);
                         setPalette(finalPalette);
                         setThemeName(data.themeName || "AI Completion");
@@ -249,6 +240,30 @@
                     }
                 } finally {
                     setIsGenerating(false);
+                }
+            };
+
+            // GOOGLE SLIDES INTEGRATION LOGIC
+            const applyToGoogleSlides = () => {
+                setSlidesStatus('applying');
+                
+                // Broadcast the palette to the parent window (the Google Slides iframe)
+                if (window.parent !== window) {
+                    window.parent.postMessage({ action: 'APPLY_PALETTE', palette: palette }, '*');
+                    
+                    // Temporarily show success state
+                    setTimeout(() => { 
+                        setSlidesStatus('success'); 
+                        showToast("Palette pushed to Google Slides!");
+                        setTimeout(() => setSlidesStatus('idle'), 3000); 
+                    }, 1000);
+                } else {
+                    // If testing outside of Google Slides on Vercel/Local
+                    setTimeout(() => { 
+                        setSlidesStatus('success'); 
+                        showToast("Simulation: Open this app inside Google Slides to apply.");
+                        setTimeout(() => setSlidesStatus('idle'), 3000); 
+                    }, 1500);
                 }
             };
 
@@ -364,6 +379,13 @@
                                     <div className="lg:col-span-3 space-y-4">
                                         <div className="flex justify-between items-center">
                                             <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2"><Icon name="layers" size={14} /> Design Reference</h3>
+                                            
+                                            {/* PUSH TO SLIDES BUTTON */}
+                                            <button onClick={applyToGoogleSlides} disabled={slidesStatus === 'applying'} className="flex items-center gap-2 px-6 py-2 bg-amber-500 text-white rounded-full font-bold text-xs shadow-md hover:bg-amber-600 disabled:opacity-50">
+                                                {slidesStatus === 'applying' ? <Icon name="loader" className="animate-spin" size={14} /> : slidesStatus === 'success' ? <Icon name="check" size={14} /> : <Icon name="airplay" size={14} />} 
+                                                {slidesStatus === 'success' ? 'Applied!' : 'Push to Slides'}
+                                            </button>
+
                                         </div>
                                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                                             {Object.keys(ARCHITECTURAL_THEMES).map(key => (
