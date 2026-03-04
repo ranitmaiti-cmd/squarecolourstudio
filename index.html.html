@@ -1,0 +1,854 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Square Colour Studio</title>
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: #0F0B08; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script type="text/babel">
+    const { useState, useCallback, useRef, useEffect } = React;
+
+
+
+const SWATCHES = [
+  "#FFFFFF","#F5F0EB","#E8E0D8","#D4C9BE","#B8A99A","#8C7B72","#5C4A42","#3D2B24","#1A1008","#000000",
+  "#FFE4E1","#FFBCB5","#FF8A7A","#FF5C4A","#E63C2F","#C4241A","#9E0F08","#F7A8B5","#F06292","#D81B60",
+  "#FFF3E0","#FFD9A0","#FFB347","#FF8C00","#E65C00","#BF4200","#8B2E00","#FFCC80","#FFA726","#EF6C00",
+  "#FFFDE7","#FFF59D","#FFE135","#F5C518","#D4A000","#A07800","#6B5000","#F9E04B","#F7C948","#E6A817",
+  "#F1F8E9","#C5E1A5","#8BC34A","#558B2F","#33691E","#1B5E20","#A5D6A7","#4CAF50","#2E7D32","#1B4D22",
+  "#E0F7FA","#80DEEA","#26C6DA","#00838F","#006064","#80CBC4","#26A69A","#00796B","#004D40","#B2DFDB",
+  "#E3F2FD","#90CAF9","#42A5F5","#1565C0","#0D47A1","#BBDEFB","#64B5F6","#1976D2","#0A3D91","#0D2B6B",
+  "#F3E5F5","#CE93D8","#AB47BC","#7B1FA2","#4A148C","#D1C4E9","#9575CD","#512DA8","#311B92","#EDE7F6",
+  "#E8D5C0","#D4A574","#C8874A","#A0522D","#7B3F1A","#5C2E0F","#F0C090","#D4845A","#B05A30","#8B3A1A",
+  "#F8F8F8","#EBEBEB","#D0D0D0","#ABABAB","#808080","#5A5A5A","#3C3C3C","#2A2A2A","#181818","#0A0A0A",
+];
+
+const HARMONY_RULES = [
+  { id:"complementary", label:"Complementary", desc:"Opposite on the wheel — high contrast, bold" },
+  { id:"triadic",       label:"Triadic",        desc:"Three evenly spaced hues — vibrant & balanced" },
+  { id:"analogous",     label:"Analogous",      desc:"Neighbours on the wheel — natural & harmonious" },
+  { id:"split",         label:"Split-Comp",     desc:"Safe contrast with more nuance" },
+  { id:"tetradic",      label:"Tetradic",       desc:"Four hues — rich & complex" },
+];
+
+const TONES = [
+  { id:"vivid",    label:"Vivid",    desc:"Full saturation — bold, energetic",         sMult:1.0,  lShift:0  },
+  { id:"balanced", label:"Balanced", desc:"Natural saturation — clean & versatile",    sMult:0.75, lShift:5  },
+  { id:"muted",    label:"Muted",    desc:"Reduced saturation — calm & sophisticated", sMult:0.45, lShift:12 },
+  { id:"dusty",    label:"Dusty",    desc:"Desaturated pastels — soft & editorial",    sMult:0.22, lShift:22 },
+];
+
+function hexToHsl(hex){
+  let r=parseInt(hex.slice(1,3),16)/255,g=parseInt(hex.slice(3,5),16)/255,b=parseInt(hex.slice(5,7),16)/255;
+  const mx=Math.max(r,g,b),mn=Math.min(r,g,b);let h,s,l=(mx+mn)/2;
+  if(mx===mn){h=s=0;}else{const d=mx-mn;s=l>.5?d/(2-mx-mn):d/(mx+mn);
+    switch(mx){case r:h=((g-b)/d+(g<b?6:0))/6;break;case g:h=((b-r)/d+2)/6;break;case b:h=((r-g)/d+4)/6;break;}}
+  return[h*360,s*100,l*100];
+}
+function hslToHex(h,s,l){
+  h=((h%360)+360)%360;s=Math.max(0,Math.min(100,s));l=Math.max(0,Math.min(100,l));s/=100;l/=100;
+  const a=s*Math.min(l,1-l);
+  const f=n=>{const k=(n+h/30)%12;const c=l-a*Math.max(Math.min(k-3,9-k,1),-1);return Math.round(255*c).toString(16).padStart(2,'0');};
+  return`#${f(0)}${f(8)}${f(4)}`;
+}
+function lum(hex){
+  if(!hex||hex.length<7)return 0.5;
+  const r=parseInt(hex.slice(1,3),16)/255,g=parseInt(hex.slice(3,5),16)/255,b=parseInt(hex.slice(5,7),16)/255;
+  return .299*r+.587*g+.114*b;
+}
+function applyTone(h,s,l,toneId){
+  const t=TONES.find(x=>x.id===toneId)||TONES[0];
+  const ns=Math.max(0,Math.min(100,s*t.sMult));
+  const nl=Math.max(0,Math.min(96,l+t.lShift));
+  return[h,ns,nl];
+}
+function generateSuggestions(colors,rule,toneId="balanced"){
+  if(!colors.length)return[];
+  const slots=Math.max(0,5-colors.length); // total palette capped at 5
+  if(slots===0)return[];
+  const avg=colors.reduce((a,c)=>{const[h,s,l]=hexToHsl(c);return[a[0]+h,a[1]+s,a[2]+l];},[0,0,0]).map(v=>v/colors.length);
+  const[h,s,l]=avg;
+  const T=([hh,ss,ll])=>hslToHex(...applyTone(hh,ss,ll,toneId));
+  const all=[];
+  switch(rule){
+    case"complementary":all.push(T([h+180,s,l]),T([h+180,s*.7,Math.min(l+15,90)]),T([h+180,s*.4,Math.min(l+25,95)]));break;
+    case"triadic":all.push(T([h+120,s,l]),T([h+240,s,l]),T([h+180,s*.5,Math.min(l+20,90)]));break;
+    case"analogous":all.push(T([h+30,s,l]),T([h-30,s,l]),T([h+15,s*.8,Math.min(l+10,90)]));break;
+    case"split":all.push(T([h+150,s,l]),T([h+210,s,l]),T([h+180,s*.5,Math.min(l+20,90)]));break;
+    case"tetradic":all.push(T([h+90,s,l]),T([h+180,s,l]),T([h+270,s,l]));break;
+    default:break;
+  }
+  return all.slice(0,slots);
+}
+function cp(text){try{navigator.clipboard.writeText(text);}catch{}}
+
+// Draw palette card to canvas and trigger PNG download
+function downloadPalette(colors, rule, name){
+  const W=900, H=320, PAD=40, CHIP=100;
+  const canvas=document.createElement("canvas");
+  canvas.width=W; canvas.height=H;
+  const ctx=canvas.getContext("2d");
+  // Background
+  ctx.fillStyle="#0F0B08";
+  ctx.fillRect(0,0,W,H);
+  // Title
+  ctx.font="bold 13px 'Outfit', sans-serif";
+  ctx.fillStyle="#5C4A42";
+  ctx.letterSpacing="3px";
+  ctx.fillText("SQUARE COLOUR STUDIO", PAD, 38);
+  ctx.font="300 11px 'Outfit', sans-serif";
+  ctx.fillStyle="#3D2B24";
+  ctx.fillText(name||`${rule} palette`, PAD, 58);
+  // Color chips
+  const total=colors.length;
+  const startX=PAD;
+  const chipW=Math.floor((W-PAD*2-((total-1)*12))/total);
+  colors.forEach((c,i)=>{
+    const x=startX+i*(chipW+12);
+    const y=76;
+    const h=160;
+    ctx.fillStyle=c;
+    ctx.beginPath();
+    ctx.roundRect(x,y,chipW,h,10);
+    ctx.fill();
+    // hex label
+    ctx.font="bold 10px monospace";
+    ctx.fillStyle=lum(c)>.5?"#111111":"#FFFFFF";
+    ctx.globalAlpha=0.75;
+    const label=c.toUpperCase();
+    const tw=ctx.measureText(label).width;
+    ctx.fillText(label,x+(chipW-tw)/2,y+h-14);
+    ctx.globalAlpha=1;
+    // role label
+    ctx.font="500 9px 'Outfit', sans-serif";
+    ctx.fillStyle="#5C4A42";
+    const role=i<(total-3)?"BASE":"SUGG";
+    const rw=ctx.measureText(role).width;
+    ctx.fillText(role,x+(chipW-rw)/2,y+h+18);
+  });
+  // Footer
+  ctx.font="600 10px 'Outfit', sans-serif";
+  ctx.fillStyle="#2A1A10";
+  ctx.fillText("squarecs.studio", PAD, H-18);
+  ctx.font="300 10px 'Outfit', sans-serif";
+  ctx.fillText(new Date().toLocaleDateString("en-GB",{year:"numeric",month:"long",day:"numeric"}), W-PAD-160, H-18);
+  // Download
+  const a=document.createElement("a");
+  a.download=`square-palette-${Date.now()}.png`;
+  a.href=canvas.toDataURL("image/png");
+  a.click();
+}
+
+// Google Slides modal content
+function SlidesModal({colors, onClose}){
+  const [step,setStep]=useState(0);
+  const steps=[
+    {
+      title:"Open Theme Editor",
+      icon:"🎨",
+      desc:"In Google Slides, go to the menu bar and click Slide → Edit theme. This opens the Theme Builder.",
+      visual:(
+        <div style={{background:"#1a1a2e",borderRadius:8,padding:"14px 16px",fontFamily:"monospace",fontSize:11,color:"#aaa"}}>
+          <div style={{color:"#fff",marginBottom:6}}>Google Slides menu</div>
+          <div style={{color:"#64b5f6"}}>File &nbsp; Edit &nbsp; View &nbsp; <span style={{background:"#2d5be3",color:"#fff",padding:"2px 8px",borderRadius:4}}>Slide</span> &nbsp; Format</div>
+          <div style={{marginTop:10,paddingLeft:16,borderLeft:"2px solid #2d5be3",color:"#ccc",lineHeight:1.8}}>
+            <div>New slide</div>
+            <div>Duplicate slide</div>
+            <div style={{color:"#fff",fontWeight:"bold"}}>→ Edit theme</div>
+            <div>Change background…</div>
+          </div>
+        </div>
+      )
+    },
+    {
+      title:"Open Colour Palette",
+      icon:"🖌️",
+      desc:"In the Theme Builder, click any coloured square in the left sidebar (background, accent, text). A colour picker will open.",
+      visual:(
+        <div style={{background:"#f1f3f4",borderRadius:8,padding:14,display:"flex",gap:10,alignItems:"flex-start"}}>
+          <div style={{background:"#fff",borderRadius:6,padding:10,flex:1,boxShadow:"0 2px 8px rgba(0,0,0,0.1)"}}>
+            <div style={{fontSize:10,color:"#666",marginBottom:8,fontFamily:"sans-serif"}}>Theme colours</div>
+            <div style={{display:"flex",flexWrap:"wrap",gap:5}}>
+              {["#4285f4","#ea4335","#fbbc04","#34a853","#ff6d00","#46bdc6","#7986cb","#e91e63"].map((c,i)=>(
+                <div key={i} style={{width:22,height:22,borderRadius:4,background:c,border:i===0?"2.5px solid #333":"none",cursor:"pointer"}}/>
+              ))}
+            </div>
+            <div style={{marginTop:10,fontSize:9,color:"#999",fontFamily:"sans-serif"}}>Click any swatch to replace it →</div>
+          </div>
+        </div>
+      )
+    },
+    {
+      title:"Paste Your HEX Code",
+      icon:"#️⃣",
+      desc:'In the colour picker, find the HEX input field (shows a 6-character code like "4285F4"). Click it, select all, and paste your colour.',
+      visual:(
+        <div style={{background:"#fff",borderRadius:8,padding:14,boxShadow:"0 2px 12px rgba(0,0,0,0.12)"}}>
+          <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:12}}>
+            <div style={{width:36,height:36,borderRadius:6,background:colors[0]||"#C8874A",border:"1px solid #ddd"}}/>
+            <div>
+              <div style={{fontSize:10,color:"#333",fontFamily:"sans-serif",fontWeight:600}}>Custom colour</div>
+              <div style={{fontSize:9,color:"#999",fontFamily:"sans-serif"}}>Enter HEX value below</div>
+            </div>
+          </div>
+          <div style={{display:"flex",alignItems:"center",gap:6,background:"#f8f9fa",borderRadius:6,padding:"8px 10px",border:"2px solid #4285f4"}}>
+            <span style={{fontSize:11,color:"#999",fontFamily:"monospace"}}>#</span>
+            <span style={{fontSize:11,color:"#333",fontFamily:"monospace",fontWeight:600}}>{(colors[0]||"#C8874A").slice(1).toUpperCase()}</span>
+            <span style={{marginLeft:"auto",fontSize:9,background:"#e8f0fe",color:"#4285f4",padding:"2px 6px",borderRadius:4}}>← paste here</span>
+          </div>
+          <div style={{marginTop:8,fontSize:9,color:"#999",fontFamily:"sans-serif"}}>Press Enter or click OK to apply</div>
+        </div>
+      )
+    },
+    {
+      title:"Apply All Colours",
+      icon:"✅",
+      desc:"Repeat for each colour slot in your theme. You have 8 slots — use your base colours first, then the suggested ones.",
+      visual:(
+        <div style={{display:"flex",flexDirection:"column",gap:8}}>
+          {colors.map((c,i)=>(
+            <div key={i} style={{display:"flex",alignItems:"center",gap:10,background:"#12100D",borderRadius:7,padding:"8px 12px"}}>
+              <div style={{width:28,height:28,borderRadius:6,background:c,flexShrink:0,boxShadow:`0 2px 8px ${c}44`}}/>
+              <div style={{flex:1}}>
+                <div style={{fontFamily:"monospace",fontSize:11,color:"#F5F0EB",letterSpacing:"0.06em"}}>{c.toUpperCase()}</div>
+                <div style={{fontFamily:"'Outfit',sans-serif",fontSize:9,color:"#5C4A42",marginTop:1}}>
+                  {i===0?"Background / Base":i===1?"Secondary Background":i===2?"Primary Accent":i===3?"Secondary Accent":i===4?"Tertiary Accent":"Supporting colour"}
+                </div>
+              </div>
+              <div style={{fontFamily:"'Outfit',sans-serif",fontSize:9,fontWeight:600,padding:"3px 8px",borderRadius:20,
+                background:i<(colors.length-3)?"#2A1A10":"#1A2A10",
+                color:i<(colors.length-3)?"#C8874A":"#6AB04C"}}>
+                {i<(colors.length-3)?"BASE":"SUGG"}
+              </div>
+            </div>
+          ))}
+        </div>
+      )
+    },
+  ];
+
+  const s=steps[step];
+  return(
+    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.8)",zIndex:2000,display:"flex",alignItems:"center",justifyContent:"center",padding:24}}
+      onClick={e=>{if(e.target===e.currentTarget)onClose();}}>
+      <div style={{background:"#0F0B08",borderRadius:16,border:"1px solid #3D2B24",width:"100%",maxWidth:560,maxHeight:"90vh",overflowY:"auto",
+        boxShadow:"0 32px 80px rgba(0,0,0,0.7)"}}>
+        {/* Header */}
+        <div style={{padding:"24px 28px 20px",borderBottom:"1px solid #1A1008",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+          <div>
+            <div style={{fontFamily:"'Outfit',sans-serif",fontSize:10,color:"#5C4A42",letterSpacing:"0.14em",textTransform:"uppercase",fontWeight:600,marginBottom:4}}>
+              ▣ Google Slides Guide
+            </div>
+            <div style={{fontFamily:"'Outfit',sans-serif",fontSize:18,fontWeight:700,color:"#F5F0EB"}}>
+              Apply your palette to Slides
+            </div>
+          </div>
+          <button onClick={onClose} style={{background:"#1A1008",border:"1px solid #3D2B24",color:"#8C7B72",width:32,height:32,borderRadius:"50%",cursor:"pointer",fontSize:16,display:"flex",alignItems:"center",justifyContent:"center"}}>×</button>
+        </div>
+
+        {/* Step progress */}
+        <div style={{padding:"16px 28px 0",display:"flex",gap:6}}>
+          {steps.map((st,i)=>(
+            <div key={i} onClick={()=>setStep(i)} style={{flex:1,height:3,borderRadius:2,cursor:"pointer",
+              background:i<=step?"#C8874A":"#2A1A10",transition:"background 0.2s"}}/>
+          ))}
+        </div>
+
+        {/* Step content */}
+        <div style={{padding:"24px 28px"}}>
+          <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:16}}>
+            <div style={{width:36,height:36,borderRadius:10,background:"#1A1008",border:"1px solid #3D2B24",display:"flex",alignItems:"center",justifyContent:"center",fontSize:18}}>
+              {s.icon}
+            </div>
+            <div>
+              <div style={{fontFamily:"'Outfit',sans-serif",fontSize:9,color:"#5C4A42",letterSpacing:"0.1em",textTransform:"uppercase",fontWeight:600}}>
+                Step {step+1} of {steps.length}
+              </div>
+              <div style={{fontFamily:"'Outfit',sans-serif",fontSize:16,fontWeight:700,color:"#F5F0EB"}}>{s.title}</div>
+            </div>
+          </div>
+          <p style={{fontFamily:"'Outfit',sans-serif",fontSize:13,fontWeight:300,color:"#B8A99A",lineHeight:1.7,marginBottom:20}}>
+            {s.desc}
+          </p>
+          {s.visual}
+        </div>
+
+        {/* Copy + Nav */}
+        <div style={{padding:"16px 28px 24px",borderTop:"1px solid #1A1008",display:"flex",gap:10,justifyContent:"space-between",alignItems:"center"}}>
+          <button onClick={()=>{ cp(colors.map((c,i)=>`Slot ${i+1}: ${c}`).join("\n")); }}
+            style={{background:"#1A1008",border:"1px solid #3D2B24",color:"#B8A99A",padding:"9px 16px",borderRadius:8,cursor:"pointer",
+              fontFamily:"'Outfit',sans-serif",fontSize:11,fontWeight:500,letterSpacing:"0.04em"}}>
+            Copy all HEX codes
+          </button>
+          <div style={{display:"flex",gap:8}}>
+            {step>0&&(
+              <button onClick={()=>setStep(s=>s-1)}
+                style={{background:"#1A1008",border:"1px solid #3D2B24",color:"#B8A99A",padding:"9px 18px",borderRadius:8,cursor:"pointer",
+                  fontFamily:"'Outfit',sans-serif",fontSize:11,fontWeight:500}}>
+                ← Back
+              </button>
+            )}
+            {step<steps.length-1?(
+              <button onClick={()=>setStep(s=>s+1)}
+                style={{background:"#C8874A",border:"none",color:"#0F0B08",padding:"9px 22px",borderRadius:8,cursor:"pointer",
+                  fontFamily:"'Outfit',sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.08em"}}>
+                Next →
+              </button>
+            ):(
+              <button onClick={onClose}
+                style={{background:"#C8874A",border:"none",color:"#0F0B08",padding:"9px 22px",borderRadius:8,cursor:"pointer",
+                  fontFamily:"'Outfit',sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.08em"}}>
+                Done ✓
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function App(){
+  const[selected,setSelected]=useState([]);
+  const[rule,setRule]=useState("complementary");
+  const[tone,setTone]=useState("balanced");
+  const[suggestions,setSuggestions]=useState([]);
+  const[generated,setGenerated]=useState(false);
+  const[loading,setLoading]=useState(false);
+  const[insightLoading,setInsightLoading]=useState(false);
+  const[aiInsight,setAiInsight]=useState("");
+  const[toast,setToast]=useState({visible:false,message:""});
+  const[hoveredSwatch,setHoveredSwatch]=useState(null);
+  const[showSlides,setShowSlides]=useState(false);
+  const[savedPalettes,setSavedPalettes]=useState([]);
+  const[showSaved,setShowSaved]=useState(false);
+  const[paletteName,setPaletteName]=useState("");
+  const[nameMode,setNameMode]=useState(false);
+  const timerRef=useRef(null);
+
+  // Load saved palettes from storage on mount
+  useEffect(()=>{
+    (async()=>{
+      try{
+        const raw=localStorage.getItem("sq-palettes");
+        if(raw)setSavedPalettes(JSON.parse(raw)||[]);
+      }catch{}
+    })();
+  },[]);
+
+  const showToast=msg=>{
+    if(timerRef.current)clearTimeout(timerRef.current);
+    setToast({visible:true,message:msg});
+    timerRef.current=setTimeout(()=>setToast(t=>({...t,visible:false})),2200);
+  };
+
+  // Reset palette when tone or rule changes so stale preview never lingers
+  useEffect(()=>{
+    if(generated){ setGenerated(false);setSuggestions([]);setAiInsight(""); }
+  },[tone,rule]);
+
+  const toggleColor=color=>{
+    setSelected(prev=>{
+      if(prev.includes(color))return prev.filter(c=>c!==color);
+      if(prev.length>=4)return prev;
+      return[...prev,color];
+    });
+    setGenerated(false);setSuggestions([]);setAiInsight("");
+  };
+
+  const handleGenerate=useCallback(async()=>{
+    if(!selected.length)return;
+    setLoading(true);setGenerated(false);setAiInsight("");
+    const sugg=generateSuggestions(selected,rule,tone);
+    setSuggestions(sugg);
+    setGenerated(true);setLoading(false);
+    setInsightLoading(true);
+    const prompt=`You are a colour consultant for architects and interior designers. Base colours: ${selected.join(", ")}. Harmony rule: ${rule}. Suggested additions: ${sugg.join(", ")}. In 2-3 sentences, describe the mood/atmosphere this palette creates and suggest ONE ideal use case (e.g. a hotel lobby, a residential living room, a product UI). Be evocative and specific. Use design language. No hex values.`;
+    try{
+      const res=await fetch("https://api.anthropic.com/v1/messages",{
+        method:"POST",headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:1000,messages:[{role:"user",content:prompt}]})
+      });
+      const d=await res.json();
+      setAiInsight(d.content?.map(b=>b.text||"").join("").trim()||"");
+    }catch{}
+    setInsightLoading(false);
+  },[selected,rule,tone]);
+
+  const allColors=[...selected,...suggestions];
+
+  const savePalette=async()=>{
+    if(!allColors.length)return;
+    const name=paletteName.trim()||`Palette ${new Date().toLocaleDateString("en-GB",{day:"numeric",month:"short"})}`;
+    const entry={id:Date.now(),name,colors:allColors,rule,tone,base:selected,sugg:suggestions,insight:aiInsight};
+    const updated=[entry,...savedPalettes].slice(0,20);
+    setSavedPalettes(updated);
+    setNameMode(false);setPaletteName("");
+    try{ localStorage.setItem("sq-palettes",JSON.stringify(updated)); }catch{}
+    showToast(`"${name}" saved!`);
+  };
+
+  const deletePalette=async(id)=>{
+    const updated=savedPalettes.filter(p=>p.id!==id);
+    setSavedPalettes(updated);
+    try{ localStorage.setItem("sq-palettes",JSON.stringify(updated)); }catch{}
+    showToast("Palette removed");
+  };
+
+  const loadPalette=p=>{
+    setSelected(p.base);setSuggestions(p.sugg);setRule(p.rule);
+    setAiInsight(p.insight||"");setGenerated(true);
+    setShowSaved(false);showToast(`"${p.name}" loaded`);
+  };
+
+  return(
+    <div style={{minHeight:"100vh",background:"#0F0B08",fontFamily:"'Outfit',sans-serif",color:"#F5F0EB"}}>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap');
+        *{box-sizing:border-box;margin:0;padding:0;}
+        ::-webkit-scrollbar{width:4px;}
+        ::-webkit-scrollbar-track{background:#1a1008;}
+        ::-webkit-scrollbar-thumb{background:#5C4A42;border-radius:2px;}
+        .swatch-dot{width:36px;height:36px;border-radius:50%;cursor:pointer;transition:transform .15s ease,box-shadow .15s ease;border:none;outline:none;flex-shrink:0;}
+        .swatch-dot:hover{transform:scale(1.28);z-index:2;position:relative;}
+        .swatch-dot.sel{transform:scale(1.18);box-shadow:0 0 0 2px #0F0B08,0 0 0 4px #F5F0EB !important;z-index:5;position:relative;}
+        .rule-btn{padding:8px 16px;border-radius:40px;border:1px solid #3D2B24;background:transparent;color:#B8A99A;cursor:pointer;font-family:'Outfit',sans-serif;font-size:11px;font-weight:500;letter-spacing:.06em;transition:all .2s ease;white-space:nowrap;}
+        .rule-btn:hover{border-color:#8C7B72;color:#F5F0EB;}
+        .rule-btn.active{background:#5C4A42;border-color:#8C7B72;color:#F5F0EB;}
+        .gen-btn{background:#C8874A;color:#0F0B08;border:none;padding:14px 36px;border-radius:40px;cursor:pointer;font-family:'Outfit',sans-serif;font-size:12px;font-weight:700;letter-spacing:.12em;transition:all .2s ease;text-transform:uppercase;}
+        .gen-btn:hover:not(:disabled){background:#E09050;transform:translateY(-1px);box-shadow:0 8px 24px rgba(200,135,74,.3);}
+        .gen-btn:disabled{opacity:.4;cursor:not-allowed;}
+        .chip{position:relative;border-radius:12px;overflow:hidden;cursor:pointer;transition:transform .2s ease;}
+        .chip:hover{transform:scale(1.06);}
+        .action-btn{display:flex;align-items:center;gap:8px;padding:10px 18px;border-radius:8px;background:#1A1008;border:1px solid #3D2B24;color:#B8A99A;cursor:pointer;font-family:'Outfit',sans-serif;font-size:11px;letter-spacing:.04em;transition:all .2s;font-weight:500;text-align:left;width:100%;}
+        .action-btn:hover{border-color:#C8874A;color:#F5F0EB;background:#2A1A10;}
+        .action-btn.highlight{border-color:#C8874A;background:#2A1510;}
+        .action-btn.highlight:hover{background:#3A2010;}
+        .divider{height:1px;background:linear-gradient(90deg,transparent,#3D2B24,transparent);}
+        @keyframes fadeUp{from{opacity:0;transform:translateY(10px);}to{opacity:1;transform:translateY(0);}}
+        .fade-up{animation:fadeUp .35s ease forwards;}
+        @keyframes bounce{0%,80%,100%{transform:translateY(0)}40%{transform:translateY(-6px)}}
+        .saved-card{background:#12100D;border:1px solid #2A1A10;border-radius:10px;padding:12px;cursor:pointer;transition:border-color .15s;}
+        .saved-card:hover{border-color:#5C4A42;}
+      `}</style>
+
+      {/* HEADER */}
+      <div style={{padding:"36px 48px 28px",borderBottom:"1px solid #1A1008"}}>
+        <div style={{marginBottom:6,fontSize:11,color:"#5C4A42",letterSpacing:"0.15em",textTransform:"uppercase",fontWeight:500}}>◆ Colour Intelligence</div>
+        <div style={{display:"flex",alignItems:"baseline",gap:12,marginBottom:6}}>
+          <h1 style={{fontSize:48,fontWeight:800,letterSpacing:"-0.02em",lineHeight:1,color:"#F5F0EB"}}>SQUARE</h1>
+          <h1 style={{fontSize:48,fontWeight:300,letterSpacing:"-0.01em",lineHeight:1,color:"#8C7B72"}}>Colour Studio</h1>
+        </div>
+        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+          <p style={{fontSize:13,color:"#5C4A42",fontWeight:300,letterSpacing:"0.04em"}}>for architects, interiors & UX designers</p>
+          <button onClick={()=>setShowSaved(v=>!v)}
+            style={{display:"flex",alignItems:"center",gap:6,background:showSaved?"#2A1A10":"#1A1008",border:"1px solid #3D2B24",
+              color:showSaved?"#C8874A":"#8C7B72",padding:"7px 14px",borderRadius:40,cursor:"pointer",
+              fontFamily:"'Outfit',sans-serif",fontSize:10,fontWeight:600,letterSpacing:"0.1em",transition:"all .2s"}}>
+            ⬡ Saved Palettes {savedPalettes.length>0&&`(${savedPalettes.length})`}
+          </button>
+        </div>
+        <div style={{height:1,background:"linear-gradient(90deg,#3D2B24,transparent)",marginTop:20}}/>
+      </div>
+
+      {/* SAVED PALETTES DRAWER */}
+      {showSaved&&(
+        <div style={{background:"#0A0703",borderBottom:"1px solid #1A1008",padding:"24px 48px"}}>
+          <div style={{fontSize:10,color:"#5C4A42",letterSpacing:"0.14em",textTransform:"uppercase",fontWeight:600,marginBottom:16}}>Saved Palettes</div>
+          {savedPalettes.length===0?(
+            <div style={{fontStyle:"italic",fontSize:13,color:"#3D2B24",fontWeight:300}}>No saved palettes yet — generate one and save it below.</div>
+          ):(
+            <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(220px,1fr))",gap:12}}>
+              {savedPalettes.map(p=>(
+                <div key={p.id} className="saved-card">
+                  <div style={{display:"flex",gap:3,marginBottom:10,borderRadius:6,overflow:"hidden",height:28}}>
+                    {p.colors.map((c,i)=><div key={i} style={{flex:1,background:c}}/>)}
+                  </div>
+                  <div style={{fontSize:11,fontWeight:600,color:"#D4C9BE",marginBottom:2}}>{p.name}</div>
+                  <div style={{fontSize:9,color:"#5C4A42",letterSpacing:"0.06em",marginBottom:10}}>{p.rule.toUpperCase()} · {p.colors.length} colours</div>
+                  <div style={{display:"flex",gap:6}}>
+                    <button onClick={()=>loadPalette(p)} style={{flex:1,background:"#1A1008",border:"1px solid #3D2B24",color:"#B8A99A",padding:"5px 0",borderRadius:6,cursor:"pointer",fontSize:10,fontFamily:"'Outfit',sans-serif",fontWeight:500}}>Load</button>
+                    <button onClick={()=>{cp(p.colors.join(", "));showToast("HEX copied!");}} style={{flex:1,background:"#1A1008",border:"1px solid #3D2B24",color:"#B8A99A",padding:"5px 0",borderRadius:6,cursor:"pointer",fontSize:10,fontFamily:"'Outfit',sans-serif",fontWeight:500}}>Copy</button>
+                    <button onClick={()=>deletePalette(p.id)} style={{background:"#1A1008",border:"1px solid #2A1A10",color:"#5C4A42",padding:"5px 10px",borderRadius:6,cursor:"pointer",fontSize:10,fontFamily:"'Outfit',sans-serif"}}>✕</button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      <div style={{display:"grid",gridTemplateColumns:"1fr 380px",minHeight:"calc(100vh - 160px)"}}>
+
+        {/* LEFT */}
+        <div style={{padding:"36px 48px",borderRight:"1px solid #1A1008",overflowY:"auto"}}>
+
+          {/* Selected */}
+          <div style={{marginBottom:32}}>
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:14}}>
+              <span style={{fontSize:10,color:"#5C4A42",letterSpacing:"0.14em",textTransform:"uppercase",fontWeight:600}}>Selected — {selected.length} / 4</span>
+              {selected.length>0&&<button onClick={()=>{setSelected([]);setSuggestions([]);setGenerated(false);setAiInsight("");}} style={{background:"none",border:"none",color:"#5C4A42",cursor:"pointer",fontSize:10,letterSpacing:"0.1em",fontWeight:500}}>CLEAR ALL</button>}
+            </div>
+            <div style={{display:"flex",gap:12,flexWrap:"wrap",minHeight:60}}>
+              {selected.length===0
+                ?<div style={{fontWeight:300,color:"#3D2B24",fontSize:14,lineHeight:"60px",fontStyle:"italic"}}>Pick colours from the swatch below…</div>
+                :selected.map(c=>(
+                  <div key={c} onClick={()=>toggleColor(c)} style={{width:56,height:56,borderRadius:10,background:c,cursor:"pointer",position:"relative",transition:"transform .15s",boxShadow:`0 4px 16px ${c}55`}} title={`Remove ${c}`}>
+                    <div style={{position:"absolute",inset:0,borderRadius:10,display:"flex",alignItems:"center",justifyContent:"center",opacity:0,background:"rgba(0,0,0,0.4)",transition:"opacity .15s",fontSize:18}} onMouseEnter={e=>e.currentTarget.style.opacity=1} onMouseLeave={e=>e.currentTarget.style.opacity=0}>×</div>
+                    <div style={{position:"absolute",bottom:-20,left:"50%",transform:"translateX(-50%)",fontSize:9,color:"#5C4A42",whiteSpace:"nowrap",fontWeight:400}}>{c}</div>
+                  </div>
+                ))
+              }
+            </div>
+          </div>
+
+          <div className="divider" style={{marginBottom:28}}/>
+
+          {/* Harmony */}
+          <div style={{marginBottom:28}}>
+            <div style={{fontSize:10,color:"#5C4A42",letterSpacing:"0.14em",textTransform:"uppercase",marginBottom:12,fontWeight:600}}>Harmony Rule</div>
+            <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+              {HARMONY_RULES.map(r=>(
+                <button key={r.id} className={`rule-btn ${rule===r.id?"active":""}`} onClick={()=>setRule(r.id)} title={r.desc}>{r.label}</button>
+              ))}
+            </div>
+            <div style={{marginTop:8,fontWeight:300,color:"#5C4A42",fontSize:13,fontStyle:"italic"}}>{HARMONY_RULES.find(r=>r.id===rule)?.desc}</div>
+          </div>
+
+
+          {/* Tone */}
+          <div style={{marginBottom:28}}>
+            <div style={{fontSize:10,color:"#5C4A42",letterSpacing:"0.14em",textTransform:"uppercase",marginBottom:12,fontWeight:600}}>Colour Tone</div>
+            <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:6}}>
+              {TONES.map(t=>(
+                <button key={t.id} onClick={()=>setTone(t.id)}
+                  style={{padding:"10px 8px",borderRadius:8,border:`1px solid ${tone===t.id?"#8C7B72":"#2A1A10"}`,
+                    background:tone===t.id?"#3D2B24":"transparent",cursor:"pointer",transition:"all .15s",textAlign:"center"}}>
+                  <div style={{display:"flex",gap:2,justifyContent:"center",marginBottom:6}}>
+                    {["#C8874A","#A07878","#9E9088","#C4B8B0"].map((c,i)=>{
+                      const tm=TONES.find(x=>x.id===t.id);
+                      const[hh,ss,ll]=hexToHsl(["#C8874A","#7B8FAB","#6B9B7A","#9B7BAB"][i]);
+                      const ns=Math.max(0,Math.min(100,ss*tm.sMult));
+                      const nl=Math.max(0,Math.min(96,ll+tm.lShift));
+                      return <div key={i} style={{width:10,height:10,borderRadius:2,background:hslToHex(hh,ns,nl)}}/>;
+                    })}
+                  </div>
+                  <div style={{fontSize:10,fontFamily:"'Outfit',sans-serif",fontWeight:600,
+                    color:tone===t.id?"#F5F0EB":"#8C7B72",letterSpacing:"0.04em"}}>{t.label}</div>
+                </button>
+              ))}
+            </div>
+            <div style={{marginTop:8,fontWeight:300,color:"#5C4A42",fontSize:12,fontStyle:"italic"}}>
+              {TONES.find(t=>t.id===tone)?.desc}
+            </div>
+          </div>
+
+          {/* Generate */}
+          <div style={{marginBottom:40}}>
+            <button className="gen-btn" onClick={handleGenerate} disabled={selected.length===0||loading}>
+              {loading?"Analysing…":"Generate Palette →"}
+            </button>
+          </div>
+
+          <div className="divider" style={{marginBottom:32}}/>
+
+          {/* Swatch */}
+          <div>
+            <div style={{fontSize:10,color:"#5C4A42",letterSpacing:"0.14em",textTransform:"uppercase",marginBottom:16,fontWeight:600}}>Colour Swatch</div>
+            <div style={{display:"flex",flexWrap:"wrap",gap:8}}>
+              {SWATCHES.map(c=>(
+                <button key={c} className={`swatch-dot ${selected.includes(c)?"sel":""}`}
+                  style={{background:c,boxShadow:selected.includes(c)?undefined:`0 2px 8px ${c}44`}}
+                  onClick={()=>toggleColor(c)} onMouseEnter={()=>setHoveredSwatch(c)} onMouseLeave={()=>setHoveredSwatch(null)} title={c}/>
+              ))}
+            </div>
+            {hoveredSwatch&&(
+              <div style={{marginTop:12,fontSize:11,color:"#8C7B72",display:"flex",alignItems:"center",gap:8,fontWeight:400}}>
+                <div style={{width:16,height:16,borderRadius:4,background:hoveredSwatch}}/>{hoveredSwatch}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* RIGHT */}
+        <div style={{padding:"36px 32px",background:"#0A0703",overflowY:"auto",display:"flex",flexDirection:"column",gap:20}}>
+          <span style={{fontSize:10,color:"#5C4A42",letterSpacing:"0.14em",textTransform:"uppercase",fontWeight:600}}>Palette Preview</span>
+
+          {!generated&&!loading&&(
+            <div style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",opacity:.3,paddingTop:40}}>
+              <div style={{fontSize:48,lineHeight:1,marginBottom:12,color:"#5C4A42"}}>◈</div>
+              <div style={{fontWeight:300,fontStyle:"italic",fontSize:14,color:"#8C7B72",textAlign:"center"}}>Select colours & generate<br/>to reveal your palette</div>
+            </div>
+          )}
+
+          {generated&&(
+            <div className="fade-up">
+              {/* Bar */}
+              <div style={{borderRadius:12,overflow:"hidden",height:72,display:"flex",marginBottom:20,boxShadow:"0 8px 32px rgba(0,0,0,0.4)",cursor:"pointer"}}
+                onClick={()=>{cp(allColors.join(", "));showToast("All colours copied!");}} title="Copy all">
+                {allColors.map((c,i)=><div key={i} style={{flex:1,background:c}}/>)}
+              </div>
+
+              {/* Base */}
+              <div style={{marginBottom:18}}>
+                <div style={{fontSize:10,color:"#3D2B24",letterSpacing:"0.1em",textTransform:"uppercase",marginBottom:10,fontWeight:600}}>Your Base</div>
+                <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+                  {selected.map(c=>(
+                    <div key={c} className="chip" style={{width:50,height:50,background:c,boxShadow:`0 4px 12px ${c}44`}} onClick={()=>{cp(c);showToast(`${c} copied`);}} title={c}/>
+                  ))}
+                </div>
+              </div>
+
+              {/* Suggestions */}
+              <div style={{marginBottom:22}}>
+                <div style={{fontSize:10,color:"#3D2B24",letterSpacing:"0.1em",textTransform:"uppercase",marginBottom:10,fontWeight:600}}>Suggested — {HARMONY_RULES.find(r=>r.id===rule)?.label}</div>
+                <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+                  {suggestions.map((c,i)=>(
+                    <div key={i} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:5}}>
+                      <div className="chip" style={{width:50,height:50,background:c,boxShadow:`0 4px 16px ${c}55`}} onClick={()=>{cp(c);showToast(`${c} copied`);}} title={c}/>
+                      <span style={{fontSize:9,color:"#5C4A42",fontWeight:400}}>{c}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Preview strips */}
+              <div style={{marginBottom:22}}>
+                <div style={{fontSize:10,color:"#3D2B24",letterSpacing:"0.1em",textTransform:"uppercase",marginBottom:10,fontWeight:600}}>Applied Preview</div>
+                <div style={{borderRadius:10,overflow:"hidden",height:52,marginBottom:8,position:"relative",boxShadow:"0 4px 16px rgba(0,0,0,0.3)"}}>
+                  <div style={{position:"absolute",inset:0,display:"flex"}}>
+                    <div style={{flex:3,background:allColors[0]||"#ccc"}}/><div style={{flex:1.5,background:allColors[1]||"#999"}}/><div style={{flex:1,background:allColors[2]||"#666"}}/>
+                  </div>
+                  <div style={{position:"absolute",inset:0,display:"flex",alignItems:"center",padding:"0 14px",gap:8}}>
+                    <div style={{width:14,height:26,borderRadius:3,background:allColors[3]||allColors[0],opacity:.9}}/>
+                    <div style={{flex:1,height:5,borderRadius:3,background:allColors[4]||allColors[1],opacity:.7}}/>
+                  </div>
+                  <div style={{position:"absolute",bottom:4,right:8,fontSize:8,color:"rgba(255,255,255,0.45)",fontWeight:500,letterSpacing:"0.08em"}}>INTERIOR</div>
+                </div>
+                <div style={{borderRadius:10,overflow:"hidden",height:44,background:allColors[0]||"#1a1a1a",padding:"0 14px",display:"flex",alignItems:"center",gap:10,boxShadow:"0 4px 16px rgba(0,0,0,0.3)"}}>
+                  <div style={{width:56,height:7,borderRadius:4,background:allColors[2]||"#fff",opacity:.85}}/>
+                  <div style={{flex:1,height:4,borderRadius:4,background:allColors[1]||"#ccc",opacity:.5}}/>
+                  <div style={{width:28,height:22,borderRadius:6,background:allColors[3]||allColors[2]}}/>
+                  <div style={{fontSize:8,color:"rgba(255,255,255,0.35)",fontWeight:500,letterSpacing:"0.08em"}}>UI</div>
+                </div>
+              </div>
+
+              {/* AI Insight */}
+              {insightLoading&&(
+                <div style={{background:"#12100D",borderLeft:"2px solid #3D2B24",borderRadius:"0 8px 8px 0",padding:"14px 16px",marginBottom:8,display:"flex",alignItems:"center",gap:8}}>
+                  {[0,1,2].map(i=><div key={i} style={{width:5,height:5,borderRadius:"50%",background:"#5C4A42",animation:`bounce 1s ${i*.18}s infinite`}}/>)}
+                  <span style={{fontSize:11,color:"#5C4A42",fontStyle:"italic",marginLeft:4}}>Generating insight…</span>
+                </div>
+              )}
+              {aiInsight&&!insightLoading&&(
+                <div style={{background:"#12100D",borderLeft:"2px solid #C8874A",borderRadius:"0 8px 8px 0",padding:"14px 16px",marginBottom:8}}>
+                  <div style={{fontSize:9,color:"#8C7B72",letterSpacing:"0.12em",textTransform:"uppercase",marginBottom:8,fontWeight:600}}>✦ AI Design Insight</div>
+                  <p style={{fontSize:13,lineHeight:1.65,color:"#D4C9BE",fontStyle:"italic",fontWeight:300}}>{aiInsight}</p>
+                </div>
+              )}
+
+              <div className="divider" style={{marginBottom:18}}/>
+
+              {/* SAVE SECTION */}
+              <div style={{marginBottom:18}}>
+                <div style={{fontSize:10,color:"#3D2B24",letterSpacing:"0.1em",textTransform:"uppercase",marginBottom:10,fontWeight:600}}>Save Palette</div>
+                {nameMode?(
+                  <div style={{display:"flex",gap:8}}>
+                    <input value={paletteName} onChange={e=>setPaletteName(e.target.value)}
+                      onKeyDown={e=>{if(e.key==="Enter")savePalette();if(e.key==="Escape"){setNameMode(false);setPaletteName("");}}}
+                      placeholder="Name this palette…" autoFocus
+                      style={{flex:1,background:"#1A1008",border:"1px solid #5C4A42",color:"#F5F0EB",padding:"9px 12px",borderRadius:8,
+                        fontFamily:"'Outfit',sans-serif",fontSize:12,outline:"none"}}/>
+                    <button onClick={savePalette} style={{background:"#C8874A",border:"none",color:"#0F0B08",padding:"9px 16px",borderRadius:8,cursor:"pointer",fontFamily:"'Outfit',sans-serif",fontSize:11,fontWeight:700}}>Save</button>
+                    <button onClick={()=>{setNameMode(false);setPaletteName("");}} style={{background:"#1A1008",border:"1px solid #3D2B24",color:"#8C7B72",padding:"9px 12px",borderRadius:8,cursor:"pointer",fontFamily:"'Outfit',sans-serif",fontSize:11}}>✕</button>
+                  </div>
+                ):(
+                  <button className="action-btn highlight" onClick={()=>setNameMode(true)}>
+                    <span style={{fontSize:14}}>⬡</span> Save this palette
+                  </button>
+                )}
+              </div>
+
+              {/* EXPORT */}
+              <div style={{marginBottom:8}}>
+                <div style={{fontSize:10,color:"#3D2B24",letterSpacing:"0.1em",textTransform:"uppercase",marginBottom:10,fontWeight:600}}>Export</div>
+                <div style={{display:"flex",flexDirection:"column",gap:8}}>
+                  <button className="action-btn" onClick={()=>{cp(allColors.join(", "));showToast("HEX codes copied!");}}>
+                    <span style={{fontSize:13,width:18,textAlign:"center"}}>#</span> Copy HEX codes
+                  </button>
+                  <button className="action-btn" onClick={()=>{cp(`:root {\n${allColors.map((c,i)=>`  --color-${i+1}: ${c};`).join("\n")}\n}`);showToast("CSS variables copied!");}}>
+                    <span style={{fontSize:13,width:18,textAlign:"center"}}>{"{}"}</span> Copy CSS variables
+                  </button>
+                  <button className="action-btn" onClick={()=>{cp(allColors.map((c,i)=>`Color ${i+1} — HEX: ${c} | RGB: ${parseInt(c.slice(1,3),16)}, ${parseInt(c.slice(3,5),16)}, ${parseInt(c.slice(5,7),16)}`).join("\n"));showToast("Figma values copied!");}}>
+                    <span style={{fontSize:13,width:18,textAlign:"center"}}>◈</span> Export for Figma
+                  </button>
+                  <button className="action-btn" onClick={()=>downloadPalette(allColors,rule,aiInsight?aiInsight.slice(0,30)+"…":"")}>
+                    <span style={{fontSize:13,width:18,textAlign:"center"}}>↓</span> Download palette PNG
+                  </button>
+                  <button className="action-btn highlight" onClick={()=>setShowSlides(true)}>
+                    <span style={{fontSize:13,width:18,textAlign:"center"}}>▣</span> How to use in Google Slides
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Wordmark */}
+          <div style={{marginTop:"auto",paddingTop:24,borderTop:"1px solid #1A1008"}}>
+            <div style={{fontWeight:800,fontSize:11,letterSpacing:"0.18em",color:"#2A1A10",textTransform:"uppercase"}}>SQUARE CS</div>
+            <div style={{fontWeight:300,fontSize:11,color:"#2A1A10",marginTop:2,letterSpacing:"0.06em"}}>Colour Intelligence</div>
+          </div>
+        </div>
+      </div>
+
+      {/* WEBPAGE MOCKUP */}
+      {generated&&(
+        <div className="fade-up" style={{borderTop:"1px solid #1A1008",padding:"40px 48px 56px"}}>
+          <div style={{marginBottom:28}}>
+            <div style={{fontSize:10,color:"#5C4A42",letterSpacing:"0.14em",textTransform:"uppercase",fontWeight:600,marginBottom:4}}>◆ Sample Webpage</div>
+            <div style={{fontSize:13,color:"#3D2B24",fontWeight:300,fontStyle:"italic"}}>Your palette applied to a live web layout</div>
+          </div>
+          <div style={{borderRadius:14,overflow:"hidden",boxShadow:"0 24px 80px rgba(0,0,0,0.6)",border:"1px solid #2A1A10"}}>
+            <div style={{background:"#1A1208",padding:"10px 16px",display:"flex",alignItems:"center",gap:10,borderBottom:"1px solid #2A1A10"}}>
+              <div style={{display:"flex",gap:6}}>
+                {["#C0392B","#E67E22","#27AE60"].map((bc,i)=><div key={i} style={{width:10,height:10,borderRadius:"50%",background:bc}}/>)}
+              </div>
+              <div style={{flex:1,background:"#0F0B08",borderRadius:6,padding:"5px 12px",display:"flex",alignItems:"center",gap:6}}>
+                <div style={{width:8,height:8,borderRadius:"50%",background:allColors[2]||"#555",opacity:.5}}/>
+                <span style={{fontSize:10,color:"#5C4A42",letterSpacing:"0.04em"}}>squarecs.studio / palette-preview</span>
+              </div>
+            </div>
+            <div style={{background:allColors[0]||"#f8f6f2",fontFamily:"'Outfit',sans-serif"}}>
+              {/* NAV — base colour, very subtle */}
+              <div style={{background:allColors[0],borderBottom:`1px solid ${allColors[2]||"#ccc"}22`,padding:"0 36px",display:"flex",alignItems:"center",justifyContent:"space-between",height:50}}>
+                <div style={{display:"flex",alignItems:"center",gap:8}}>
+                  <div style={{width:24,height:24,borderRadius:5,background:allColors[2]||"#888",opacity:.85}}/>
+                  <span style={{fontSize:12,fontWeight:700,color:lum(allColors[0])>.5?"#222":"#eee",letterSpacing:"0.08em"}}>STUDIO</span>
+                </div>
+                <div style={{display:"flex",gap:24}}>
+                  {["Work","About","Services","Contact"].map(t=>(
+                    <span key={t} style={{fontSize:11,fontWeight:400,color:lum(allColors[0])>.5?"#55555566":"#cccccc66",letterSpacing:"0.04em"}}>{t}</span>
+                  ))}
+                </div>
+                {/* CTA pill — accent colour at 80% opacity */}
+                <div style={{background:allColors[2]||"#888",opacity:.82,color:lum(allColors[2]||"#888")>.5?"#111":"#fff",padding:"7px 16px",borderRadius:40,fontSize:10,fontWeight:600,letterSpacing:"0.06em"}}>Get Started</div>
+              </div>
+
+              {/* HERO — very light tint of palette[1], not solid */}
+              <div style={{background:`linear-gradient(160deg,${allColors[1]||"#eee"}28 0%,${allColors[0]||"#f8f6f2"} 55%)`,
+                padding:"44px 36px 40px",display:"grid",gridTemplateColumns:"1fr 1fr",gap:36,alignItems:"center"}}>
+                <div>
+                  {/* Tag — accent at 15% bg, accent text */}
+                  <div style={{display:"inline-flex",alignItems:"center",gap:5,background:`${allColors[2]||"#888"}18`,
+                    border:`1px solid ${allColors[2]||"#888"}30`,
+                    color:allColors[2]||"#888",padding:"3px 10px",borderRadius:40,fontSize:9,fontWeight:600,letterSpacing:"0.1em",marginBottom:14,textTransform:"uppercase"}}>
+                    New Collection
+                  </div>
+                  <div style={{fontSize:28,fontWeight:800,lineHeight:1.1,color:lum(allColors[0])>.5?"#1a1a1a":"#f0f0f0",marginBottom:12,letterSpacing:"-0.02em"}}>
+                    Design with<br/>intention.
+                  </div>
+                  <p style={{fontSize:11,fontWeight:300,lineHeight:1.8,color:lum(allColors[0])>.5?"#666":"#aaa",marginBottom:22,maxWidth:240}}>
+                    Spaces that breathe. Colours that speak. Architecture that endures.
+                  </p>
+                  <div style={{display:"flex",gap:10}}>
+                    {/* Primary CTA — accent solid */}
+                    <div style={{background:allColors[2]||"#888",color:lum(allColors[2]||"#888")>.5?"#111":"#fff",
+                      padding:"10px 20px",borderRadius:7,fontSize:11,fontWeight:700,letterSpacing:"0.06em"}}>View Projects</div>
+                    {/* Ghost CTA — just border */}
+                    <div style={{border:`1.5px solid ${allColors[2]||"#888"}44`,
+                      color:lum(allColors[0])>.5?"#555":"#bbb",
+                      padding:"10px 20px",borderRadius:7,fontSize:11,fontWeight:400}}>Learn More</div>
+                  </div>
+                </div>
+                {/* Hero visual — subtle, low-opacity shapes */}
+                <div style={{position:"relative",height:180}}>
+                  <div style={{position:"absolute",right:0,top:0,width:"82%",height:"90%",borderRadius:14,
+                    background:allColors[1]||"#ddd",opacity:.45,boxShadow:"0 8px 32px rgba(0,0,0,0.08)"}}/>
+                  <div style={{position:"absolute",right:"8%",top:"8%",width:"75%",height:"82%",borderRadius:12,
+                    background:allColors[2]||"#aaa",opacity:.25}}/>
+                  <div style={{position:"absolute",left:"4%",bottom:"8%",width:"44%",height:"52%",borderRadius:10,
+                    background:allColors[3]||allColors[1]||"#bbb",opacity:.55,
+                    border:`2px solid ${allColors[0]||"#fff"}`}}/>
+                  <div style={{position:"absolute",right:"18%",top:"12%",width:28,height:28,borderRadius:"50%",
+                    background:allColors[4]||allColors[2]||"#ccc",opacity:.4}}/>
+                </div>
+              </div>
+
+              {/* CARDS — white bg, accent used only as small strip */}
+              <div style={{padding:"28px 36px",background:lum(allColors[0])>.5?"#ffffff":"#141414"}}>
+                <div style={{fontSize:10,fontWeight:600,letterSpacing:"0.12em",
+                  color:lum(allColors[0])>.5?"#aaaaaa":"#555555",textTransform:"uppercase",marginBottom:16}}>Featured Work</div>
+                <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:12}}>
+                  {[
+                    {label:"Residential", sub:"Interior Design",  accent:allColors[2]},
+                    {label:"Commercial",  sub:"Architecture",      accent:allColors[3]||allColors[2]},
+                    {label:"Hospitality", sub:"Brand & Space",     accent:allColors[4]||allColors[1]},
+                  ].map((card,i)=>(
+                    <div key={i} style={{borderRadius:8,overflow:"hidden",border:`1px solid ${lum(allColors[0])>.5?"#e8e8e8":"#2a2a2a"}`}}>
+                      {/* Coloured top strip — palette colour at reduced opacity */}
+                      <div style={{height:56,background:card.accent||"#ccc",opacity:.55}}/>
+                      <div style={{padding:"10px 12px",background:lum(allColors[0])>.5?"#fff":"#1c1c1c"}}>
+                        <div style={{fontSize:11,fontWeight:700,color:lum(allColors[0])>.5?"#222":"#eee",marginBottom:2}}>{card.label}</div>
+                        <div style={{fontSize:9,color:lum(allColors[0])>.5?"#aaa":"#666",marginBottom:7}}>{card.sub}</div>
+                        <div style={{height:2,borderRadius:1,background:card.accent||"#ccc",width:"30%",opacity:.6}}/>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* STATS — very light tint, not solid accent */}
+              <div style={{background:`${allColors[2]||"#888"}14`,borderTop:`1px solid ${allColors[2]||"#888"}18`,
+                borderBottom:`1px solid ${allColors[2]||"#888"}18`,
+                padding:"16px 36px",display:"flex",justifyContent:"space-around",alignItems:"center"}}>
+                {[["18+","Years"],["240","Projects"],["12","Awards"],["4","Countries"]].map(([n,l],i)=>(
+                  <div key={i} style={{textAlign:"center"}}>
+                    <div style={{fontSize:20,fontWeight:800,lineHeight:1,color:allColors[2]||"#888"}}>{n}</div>
+                    <div style={{fontSize:9,fontWeight:400,letterSpacing:"0.1em",textTransform:"uppercase",marginTop:3,
+                      color:lum(allColors[0])>.5?"#aaa":"#666"}}>{l}</div>
+                  </div>
+                ))}
+              </div>
+
+              {/* FOOTER — base colour, very quiet */}
+              <div style={{background:allColors[0],borderTop:`1px solid ${allColors[2]||"#ccc"}18`,
+                padding:"14px 36px",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+                <span style={{fontSize:9,fontWeight:600,letterSpacing:"0.14em",textTransform:"uppercase",
+                  color:lum(allColors[0])>.5?"#bbb":"#444"}}>© SQUARE CS 2025</span>
+                <div style={{display:"flex",gap:16}}>
+                  {["Instagram","Behance","LinkedIn"].map(s=>(
+                    <span key={s} style={{fontSize:9,color:lum(allColors[0])>.5?"#ccc":"#444"}}>{s}</span>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* GOOGLE SLIDES MODAL */}
+      {showSlides&&<SlidesModal colors={allColors} onClose={()=>setShowSlides(false)}/>}
+
+      {/* TOAST */}
+      <div style={{position:"fixed",bottom:32,left:"50%",transform:`translateX(-50%) translateY(${toast.visible?0:20}px)`,opacity:toast.visible?1:0,transition:"all .3s cubic-bezier(.4,0,.2,1)",background:"#1A1008",color:"#F5F0EB",padding:"10px 22px",borderRadius:40,fontSize:13,letterSpacing:"0.04em",boxShadow:"0 8px 32px rgba(0,0,0,0.25)",pointerEvents:"none",zIndex:1000}}>
+        {toast.message}
+      </div>
+    </div>
+  );
+}
+
+
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<App />);
+  </script>
+</body>
+</html>
