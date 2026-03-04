@@ -15,17 +15,38 @@
     const { useState, useCallback, useRef, useEffect } = React;
 
 
+// Curated 2024–25 colour trends — grouped by family, no duplicates
+// References: Pantone 2024 (Peach Fuzz), 2025 (Mocha Mousse), WGSN, Dulux, NCS trends
 const SWATCHES = [
-  "#FFFFFF","#1A1410","#E8E0D8","#3D2B24","#9A8878","#7A6860","#9A8878","#B8AFA8","#E2DDD8","#000000",
-  "#FFE4E1","#FFBCB5","#FF8A7A","#FF5C4A","#E63C2F","#C4241A","#9E0F08","#F7A8B5","#F06292","#D81B60",
-  "#FFF3E0","#FFD9A0","#FFB347","#FF8C00","#E65C00","#BF4200","#8B2E00","#FFCC80","#FFA726","#EF6C00",
-  "#FFFDE7","#FFF59D","#FFE135","#F5C518","#D4A000","#A07800","#6B5000","#F9E04B","#F7C948","#E6A817",
-  "#F1F8E9","#C5E1A5","#8BC34A","#558B2F","#33691E","#1B5E20","#A5D6A7","#4CAF50","#2E7D32","#1B4D22",
-  "#E0F7FA","#80DEEA","#26C6DA","#00838F","#006064","#80CBC4","#26A69A","#00796B","#004D40","#B2DFDB",
-  "#E3F2FD","#90CAF9","#42A5F5","#1565C0","#0D47A1","#BBDEFB","#64B5F6","#1976D2","#0A3D91","#0D2B6B",
-  "#F3E5F5","#CE93D8","#AB47BC","#7B1FA2","#4A148C","#D1C4E9","#9575CD","#512DA8","#311B92","#EDE7F6",
-  "#E8D5C0","#D4A574","#B5703A","#A0522D","#7B3F1A","#5C2E0F","#F0C090","#D4845A","#B05A30","#8B3A1A",
-  "#F8F8F8","#EBEBEB","#D0D0D0","#ABABAB","#808080","#5A5A5A","#3C3C3C","#2A2A2A","#181818","#0A0A0A",
+  // ── Warm Whites & Creams (architectural neutrals) ──
+  "#FDFAF6","#F5F0E8","#EDE6D8","#E2D9C8","#D4C9B4","#C8BAA0","#B8A888","#A89570","#8C7A5A","#6B5C42",
+
+  // ── Mocha, Clay & Terracotta (2024–25 hero tones) ──
+  "#C4956A","#B5703A","#A85C2A","#8B4513","#6B3410","#D4A882","#C17F5A","#A0522D","#7A3B1E","#4A2010",
+
+  // ── Peach & Blush (Pantone 2024 Peach Fuzz family) ──
+  "#FDDBB4","#F9C89A","#F4A97C","#E8875A","#D4693C","#F2C4B0","#E8A090","#D4786A","#B85248","#8C3530",
+
+  // ── Dusty Rose & Mauve (interiors trend 2024–25) ──
+  "#EDD5CB","#DDB8A8","#CC9B88","#B87868","#9C5550","#E8C4C0","#D4A0A0","#B87878","#8C5558","#5A3038",
+
+  // ── Sage & Eucalyptus (biophilic design trend) ──
+  "#D4DDD0","#AEBFAA","#889E84","#627D5C","#3D5C38","#C8D8C0","#96B090","#688860","#486040","#283C22",
+
+  // ── Olive & Moss (earthy greens, very 2025) ──
+  "#D4D0A0","#B8B472","#9C9848","#7A7830","#585A1C","#C8C898","#AAAAAA","#888860","#606040","#3C3C1C",
+
+  // ── Warm Slate & Blue-Grey (contemporary architecture) ──
+  "#D8DDE0","#B0BAC2","#8898A4","#607888","#3C5868","#C0CDD5","#90A8B5","#506878","#3A5A6C","#1E3A4A",
+
+  // ── Dusty Blue & Indigo (2025 calm interiors) ──
+  "#C8D5E8","#9AB0D0","#6C8CB8","#4468A0","#1E4480","#B8C8E0","#8098C0","#4C6898","#2A4878","#0E2C5A",
+
+  // ── Warm Taupe & Greige (timeless neutrals, Mocha Mousse adjacent) ──
+  "#E8E0D4","#D4C8B8","#C0B09A","#A8987C","#8C7C60","#787060","#5C5448","#403C34","#282420","#141210",
+
+  // ── Gold, Brass & Amber (material accent tones) ──
+  "#F5E4B0","#E8C870","#D4A830","#B88820","#8C6010","#C8A84A","#A88430","#806010","#5A4008","#382800",
 ];
 
 const HARMONY_RULES = [
@@ -759,17 +780,37 @@ function App(){
 
           {/* Swatch */}
           <div>
-            <div style={{fontSize:10,color:"#9A8878",letterSpacing:"0.14em",textTransform:"uppercase",marginBottom:16,fontWeight:600}}>Colour Swatch</div>
-            <div style={{display:"flex",flexWrap:"wrap",gap:8}}>
-              {SWATCHES.map(c=>(
-                <button key={c} className={`swatch-dot ${selected.includes(c)?"sel":""}`}
-                  style={{background:c,boxShadow:selected.includes(c)?undefined:`0 2px 8px ${c}44`}}
-                  onClick={()=>toggleColor(c)} onMouseEnter={()=>setHoveredSwatch(c)} onMouseLeave={()=>setHoveredSwatch(null)} title={c}/>
-              ))}
-            </div>
+            <div style={{fontSize:10,color:T.labelHi,letterSpacing:"0.14em",textTransform:"uppercase",marginBottom:16,fontWeight:600}}>Colour Swatch — 2024–25 Trends</div>
+            {[
+              {label:"Warm Whites & Creams",   start:0},
+              {label:"Mocha, Clay & Terracotta",start:10},
+              {label:"Peach & Blush",           start:20},
+              {label:"Dusty Rose & Mauve",      start:30},
+              {label:"Sage & Eucalyptus",       start:40},
+              {label:"Olive & Moss",            start:50},
+              {label:"Warm Slate & Blue-Grey",  start:60},
+              {label:"Dusty Blue & Indigo",     start:70},
+              {label:"Taupe, Greige & Charcoal",start:80},
+              {label:"Gold, Brass & Amber",     start:90},
+            ].map(group=>(
+              <div key={group.start} style={{marginBottom:14}}>
+                <div style={{fontSize:9,color:T.textDim,letterSpacing:"0.1em",textTransform:"uppercase",
+                  fontWeight:600,marginBottom:7}}>{group.label}</div>
+                <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
+                  {SWATCHES.slice(group.start,group.start+10).map(c=>(
+                    <button key={c} className={`swatch-dot ${selected.includes(c)?"sel":""}`}
+                      style={{background:c,boxShadow:selected.includes(c)?undefined:`0 2px 6px ${c}55`}}
+                      onClick={()=>toggleColor(c)}
+                      onMouseEnter={()=>setHoveredSwatch(c)}
+                      onMouseLeave={()=>setHoveredSwatch(null)}
+                      title={c}/>
+                  ))}
+                </div>
+              </div>
+            ))}
             {hoveredSwatch&&(
-              <div style={{marginTop:12,fontSize:11,color:"#9A8878",display:"flex",alignItems:"center",gap:8,fontWeight:400}}>
-                <div style={{width:16,height:16,borderRadius:4,background:hoveredSwatch}}/>{hoveredSwatch}
+              <div style={{marginTop:8,fontSize:11,color:T.textMuted,display:"flex",alignItems:"center",gap:8,fontWeight:400}}>
+                <div style={{width:16,height:16,borderRadius:4,background:hoveredSwatch,flexShrink:0}}/>{hoveredSwatch}
               </div>
             )}
           </div>
