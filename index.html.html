@@ -7,10 +7,7 @@
   <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-  <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { background: #0F0B08; }
-  </style>
+  <style>* { box-sizing: border-box; margin: 0; padding: 0; } body { background: #F5F2EE; }</style>
 </head>
 <body>
   <div id="root"></div>
@@ -18,9 +15,8 @@
     const { useState, useCallback, useRef, useEffect } = React;
 
 
-
 const SWATCHES = [
-  "#FFFFFF","#F5F0EB","#E8E0D8","#D4C9BE","#B8A99A","#8C7B72","#5C4A42","#3D2B24","#1A1008","#000000",
+  "#FFFFFF","#1A1410","#E8E0D8","#3D2B24","#9A8878","#7A6860","#9A8878","#B8AFA8","#E2DDD8","#000000",
   "#FFE4E1","#FFBCB5","#FF8A7A","#FF5C4A","#E63C2F","#C4241A","#9E0F08","#F7A8B5","#F06292","#D81B60",
   "#FFF3E0","#FFD9A0","#FFB347","#FF8C00","#E65C00","#BF4200","#8B2E00","#FFCC80","#FFA726","#EF6C00",
   "#FFFDE7","#FFF59D","#FFE135","#F5C518","#D4A000","#A07800","#6B5000","#F9E04B","#F7C948","#E6A817",
@@ -28,7 +24,7 @@ const SWATCHES = [
   "#E0F7FA","#80DEEA","#26C6DA","#00838F","#006064","#80CBC4","#26A69A","#00796B","#004D40","#B2DFDB",
   "#E3F2FD","#90CAF9","#42A5F5","#1565C0","#0D47A1","#BBDEFB","#64B5F6","#1976D2","#0A3D91","#0D2B6B",
   "#F3E5F5","#CE93D8","#AB47BC","#7B1FA2","#4A148C","#D1C4E9","#9575CD","#512DA8","#311B92","#EDE7F6",
-  "#E8D5C0","#D4A574","#C8874A","#A0522D","#7B3F1A","#5C2E0F","#F0C090","#D4845A","#B05A30","#8B3A1A",
+  "#E8D5C0","#D4A574","#B5703A","#A0522D","#7B3F1A","#5C2E0F","#F0C090","#D4845A","#B05A30","#8B3A1A",
   "#F8F8F8","#EBEBEB","#D0D0D0","#ABABAB","#808080","#5A5A5A","#3C3C3C","#2A2A2A","#181818","#0A0A0A",
 ];
 
@@ -77,18 +73,120 @@ function generateSuggestions(colors,rule,toneId="balanced"){
   if(slots===0)return[];
   const avg=colors.reduce((a,c)=>{const[h,s,l]=hexToHsl(c);return[a[0]+h,a[1]+s,a[2]+l];},[0,0,0]).map(v=>v/colors.length);
   const[h,s,l]=avg;
-  const T=([hh,ss,ll])=>hslToHex(...applyTone(hh,ss,ll,toneId));
+  const Tx=([hh,ss,ll])=>hslToHex(...applyTone(hh,ss,ll,toneId));
   const all=[];
   switch(rule){
-    case"complementary":all.push(T([h+180,s,l]),T([h+180,s*.7,Math.min(l+15,90)]),T([h+180,s*.4,Math.min(l+25,95)]));break;
-    case"triadic":all.push(T([h+120,s,l]),T([h+240,s,l]),T([h+180,s*.5,Math.min(l+20,90)]));break;
-    case"analogous":all.push(T([h+30,s,l]),T([h-30,s,l]),T([h+15,s*.8,Math.min(l+10,90)]));break;
-    case"split":all.push(T([h+150,s,l]),T([h+210,s,l]),T([h+180,s*.5,Math.min(l+20,90)]));break;
-    case"tetradic":all.push(T([h+90,s,l]),T([h+180,s,l]),T([h+270,s,l]));break;
+    case"complementary":all.push(Tx([h+180,s,l]),Tx([h+180,s*.7,Math.min(l+15,90)]),Tx([h+180,s*.4,Math.min(l+25,95)]));break;
+    case"triadic":all.push(Tx([h+120,s,l]),Tx([h+240,s,l]),Tx([h+180,s*.5,Math.min(l+20,90)]));break;
+    case"analogous":all.push(Tx([h+30,s,l]),Tx([h-30,s,l]),Tx([h+15,s*.8,Math.min(l+10,90)]));break;
+    case"split":all.push(Tx([h+150,s,l]),Tx([h+210,s,l]),Tx([h+180,s*.5,Math.min(l+20,90)]));break;
+    case"tetradic":all.push(Tx([h+90,s,l]),Tx([h+180,s,l]),Tx([h+270,s,l]));break;
     default:break;
   }
   return all.slice(0,slots);
 }
+// One-click Google Slides: opens a pre-filled guide page
+function openSlidesGuide(colors){
+  const roles=["Background","Text/Dark","Primary Accent","Secondary Accent","Highlight"];
+  const pairs=colors.map((c,i)=>{
+    const r=parseInt(c.slice(1,3),16),g=parseInt(c.slice(3,5),16),b=parseInt(c.slice(5,7),16);
+    return{hex:c,r,g,b,role:roles[i]||`Colour ${i+1}`};
+  });
+  const swatches=pairs.map(p=>`
+    <div class="swatch">
+      <div class="dot" style="background:${p.hex}"></div>
+      <div class="info">
+        <div class="role">${p.role}</div>
+        <div class="hex" onclick="copyText('${p.hex}')">${p.hex.toUpperCase()} <span class="copy-hint">click to copy</span></div>
+        <div class="rgb">rgb(${p.r}, ${p.g}, ${p.b})</div>
+      </div>
+    </div>`).join('');
+  const html=`<!DOCTYPE html><html><head><meta charset="UTF-8"/>
+  <title>Square CS — Google Slides Theme</title>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0;}
+    body{background:#F5F2EE;font-family:'Outfit',sans-serif;color:#1A1410;padding:40px;min-height:100vh;}
+    @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;500;700;800&display=swap');
+    h1{font-size:32px;font-weight:800;color:#1A1410;margin-bottom:4px;}
+    .sub{font-size:13px;color:#7A6860;font-weight:300;margin-bottom:36px;}
+    .bar{display:flex;border-radius:10px;overflow:hidden;height:56px;margin-bottom:36px;box-shadow:0 8px 32px rgba(0,0,0,0.4);}
+    .bar-seg{flex:1;}
+    .swatches{display:flex;flex-direction:column;gap:12px;margin-bottom:40px;}
+    .swatch{display:flex;align-items:center;gap:16px;background:#E2DDD8;border-radius:10px;padding:14px 18px;}
+    .dot{width:48px;height:48px;border-radius:8px;flex-shrink:0;}
+    .role{font-size:11px;color:#7A6860;font-weight:600;letter-spacing:.1em;text-transform:uppercase;margin-bottom:4px;}
+    .hex{font-size:18px;font-weight:700;color:#1A1410;cursor:pointer;display:inline-flex;align-items:center;gap:8px;}
+    .copy-hint{font-size:10px;color:#9A8878;font-weight:400;letter-spacing:.06em;}
+    .hex:hover .copy-hint{color:#B5703A;}
+    .rgb{font-size:11px;color:#9A8878;margin-top:2px;font-family:monospace;}
+    .steps{background:#EDEAE6;border-radius:12px;padding:24px;border:1px solid #E2DDD8;}
+    .steps h2{font-size:13px;font-weight:700;color:#8A6858;letter-spacing:.12em;text-transform:uppercase;margin-bottom:20px;}
+    .step{display:flex;gap:14px;margin-bottom:16px;align-items:flex-start;}
+    .step-num{width:24px;height:24px;border-radius:50%;background:#B5703A;color:#F5F2EE;font-size:11px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+    .step-text{font-size:12px;color:#9A8878;line-height:1.6;font-weight:300;}
+    .step-text b{color:#1A1410;font-weight:600;}
+    .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#B5703A;color:#F5F2EE;padding:10px 24px;border-radius:40px;font-size:12px;font-weight:700;letter-spacing:.06em;display:none;}
+    .toast.show{display:block;}
+  </style></head>
+  <body>
+  <h1>SQUARE <span style="font-weight:300;color:#7A6860">Colour Studio</span></h1>
+  <p class="sub">Google Slides Theme Guide — generated ${new Date().toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'})}</p>
+  <div class="bar">${pairs.map(p=>`<div class="bar-seg" style="background:${p.hex}"></div>`).join('')}</div>
+  <div class="swatches">${swatches}</div>
+  <div class="steps">
+    <h2>How to apply in Google Slides</h2>
+    <div class="step"><div class="step-num">1</div><div class="step-text">Open your Google Slides presentation. Go to <b>Slide → Edit theme</b> in the top menu.</div></div>
+    <div class="step"><div class="step-num">2</div><div class="step-text">In the Theme Builder, click on any <b>colour swatch</b> in the left sidebar to open the colour picker.</div></div>
+    <div class="step"><div class="step-num">3</div><div class="step-text">Click a hex code above to copy it. In the colour picker, find the <b>HEX field</b>, select all text and paste.</div></div>
+    <div class="step"><div class="step-num">4</div><div class="step-text">Repeat for each slot using the role guide above: <b>Background → Text → Primary Accent → Secondary → Highlight</b>.</div></div>
+    <div class="step"><div class="step-num">5</div><div class="step-text">Click <b>Done</b> to apply your theme across all slides.</div></div>
+  </div>
+  <div class="toast" id="toast">Copied!</div>
+  <script>
+    function copyText(t){
+      navigator.clipboard.writeText(t).catch(()=>{});
+      const el=document.getElementById('toast');
+      el.textContent='Copied '+t;
+      el.classList.add('show');
+      setTimeout(()=>el.classList.remove('show'),1800);
+    }
+  </script>
+  </body></html>`;
+  const blob=new Blob([html],{type:'text/html'});
+  const url=URL.createObjectURL(blob);
+  window.open(url,'_blank');
+}
+
+
+// Colour proportion guide — based on 60-30-10 rule extended for 5 colours.
+// Logic: sort by luminance (lightest = dominant background colour),
+// then assign roles and proportions by design convention.
+function getProportions(colors){
+  if(!colors.length) return [];
+  // Score each colour: luminance + index position weight
+  const scored = colors.map((hex,i)=>{
+    const l = lum(hex);
+    const[,s]=hexToHsl(hex);
+    return {hex, i, lum:l, sat:s};
+  });
+  // Sort: lightest/least saturated first (dominant), darkest/most saturated last (accent)
+  const sorted=[...scored].sort((a,b)=>(b.lum-b.sat*.01)-(a.lum-a.sat*.01));
+
+  const ROLES = [
+    { pct:60, role:"Dominant",      use:"Backgrounds, large surfaces, walls",          rule:"60%",  tip:"The neutral anchor — sets the overall mood" },
+    { pct:25, role:"Secondary",     use:"Secondary surfaces, sidebars, cards",          rule:"25%",  tip:"Supports the dominant without competing" },
+    { pct:10, role:"Accent",        use:"Buttons, highlights, key UI elements",         rule:"10%",  tip:"The visual hook — use sparingly for impact" },
+    { pct:4,  role:"Supporting",    use:"Borders, dividers, subtle details",            rule:"4%",   tip:"Structural colour — keeps layouts grounded" },
+    { pct:1,  role:"Pop / Detail",  use:"Icons, micro-interactions, focal points",      rule:"1%",   tip:"Maximum contrast — the smallest but boldest touch" },
+  ];
+
+  return sorted.map((s,i)=>({
+    ...s,
+    ...ROLES[i]||{pct:1,role:"Detail",use:"Accents",rule:"<1%",tip:"Use very sparingly"},
+  }));
+}
+
+
 function cp(text){try{navigator.clipboard.writeText(text);}catch{}}
 
 // Draw palette card to canvas and trigger PNG download
@@ -98,15 +196,15 @@ function downloadPalette(colors, rule, name){
   canvas.width=W; canvas.height=H;
   const ctx=canvas.getContext("2d");
   // Background
-  ctx.fillStyle="#0F0B08";
+  ctx.fillStyle="#F5F2EE";
   ctx.fillRect(0,0,W,H);
   // Title
   ctx.font="bold 13px 'Outfit', sans-serif";
-  ctx.fillStyle="#5C4A42";
+  ctx.fillStyle="#9A8878";
   ctx.letterSpacing="3px";
   ctx.fillText("SQUARE COLOUR STUDIO", PAD, 38);
   ctx.font="300 11px 'Outfit', sans-serif";
-  ctx.fillStyle="#3D2B24";
+  ctx.fillStyle="#B8AFA8";
   ctx.fillText(name||`${rule} palette`, PAD, 58);
   // Color chips
   const total=colors.length;
@@ -130,14 +228,14 @@ function downloadPalette(colors, rule, name){
     ctx.globalAlpha=1;
     // role label
     ctx.font="500 9px 'Outfit', sans-serif";
-    ctx.fillStyle="#5C4A42";
+    ctx.fillStyle="#9A8878";
     const role=i<(total-3)?"BASE":"SUGG";
     const rw=ctx.measureText(role).width;
     ctx.fillText(role,x+(chipW-rw)/2,y+h+18);
   });
   // Footer
   ctx.font="600 10px 'Outfit', sans-serif";
-  ctx.fillStyle="#2A1A10";
+  ctx.fillStyle="#D4CEC8";
   ctx.fillText("squarecs.studio", PAD, H-18);
   ctx.font="300 10px 'Outfit', sans-serif";
   ctx.fillText(new Date().toLocaleDateString("en-GB",{year:"numeric",month:"long",day:"numeric"}), W-PAD-160, H-18);
@@ -194,7 +292,7 @@ function SlidesModal({colors, onClose}){
       visual:(
         <div style={{background:"#fff",borderRadius:8,padding:14,boxShadow:"0 2px 12px rgba(0,0,0,0.12)"}}>
           <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:12}}>
-            <div style={{width:36,height:36,borderRadius:6,background:colors[0]||"#C8874A",border:"1px solid #ddd"}}/>
+            <div style={{width:36,height:36,borderRadius:6,background:colors[0]||"#B5703A",border:"1px solid #ddd"}}/>
             <div>
               <div style={{fontSize:10,color:"#333",fontFamily:"sans-serif",fontWeight:600}}>Custom colour</div>
               <div style={{fontSize:9,color:"#999",fontFamily:"sans-serif"}}>Enter HEX value below</div>
@@ -202,7 +300,7 @@ function SlidesModal({colors, onClose}){
           </div>
           <div style={{display:"flex",alignItems:"center",gap:6,background:"#f8f9fa",borderRadius:6,padding:"8px 10px",border:"2px solid #4285f4"}}>
             <span style={{fontSize:11,color:"#999",fontFamily:"monospace"}}>#</span>
-            <span style={{fontSize:11,color:"#333",fontFamily:"monospace",fontWeight:600}}>{(colors[0]||"#C8874A").slice(1).toUpperCase()}</span>
+            <span style={{fontSize:11,color:"#333",fontFamily:"monospace",fontWeight:600}}>{(colors[0]||"#B5703A").slice(1).toUpperCase()}</span>
             <span style={{marginLeft:"auto",fontSize:9,background:"#e8f0fe",color:"#4285f4",padding:"2px 6px",borderRadius:4}}>← paste here</span>
           </div>
           <div style={{marginTop:8,fontSize:9,color:"#999",fontFamily:"sans-serif"}}>Press Enter or click OK to apply</div>
@@ -216,17 +314,17 @@ function SlidesModal({colors, onClose}){
       visual:(
         <div style={{display:"flex",flexDirection:"column",gap:8}}>
           {colors.map((c,i)=>(
-            <div key={i} style={{display:"flex",alignItems:"center",gap:10,background:"#12100D",borderRadius:7,padding:"8px 12px"}}>
+            <div key={i} style={{display:"flex",alignItems:"center",gap:10,background:"#F0ECE8",borderRadius:7,padding:"8px 12px"}}>
               <div style={{width:28,height:28,borderRadius:6,background:c,flexShrink:0,boxShadow:`0 2px 8px ${c}44`}}/>
               <div style={{flex:1}}>
-                <div style={{fontFamily:"monospace",fontSize:11,color:"#F5F0EB",letterSpacing:"0.06em"}}>{c.toUpperCase()}</div>
-                <div style={{fontFamily:"'Outfit',sans-serif",fontSize:9,color:"#5C4A42",marginTop:1}}>
+                <div style={{fontFamily:"monospace",fontSize:11,color:"#1A1410",letterSpacing:"0.06em"}}>{c.toUpperCase()}</div>
+                <div style={{fontFamily:"'Outfit',sans-serif",fontSize:9,color:"#9A8878",marginTop:1}}>
                   {i===0?"Background / Base":i===1?"Secondary Background":i===2?"Primary Accent":i===3?"Secondary Accent":i===4?"Tertiary Accent":"Supporting colour"}
                 </div>
               </div>
               <div style={{fontFamily:"'Outfit',sans-serif",fontSize:9,fontWeight:600,padding:"3px 8px",borderRadius:20,
-                background:i<(colors.length-3)?"#2A1A10":"#1A2A10",
-                color:i<(colors.length-3)?"#C8874A":"#6AB04C"}}>
+                background:i<(colors.length-3)?"#D4CEC8":"#1A2A10",
+                color:i<(colors.length-3)?"#B5703A":"#6AB04C"}}>
                 {i<(colors.length-3)?"BASE":"SUGG"}
               </div>
             </div>
@@ -240,72 +338,72 @@ function SlidesModal({colors, onClose}){
   return(
     <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.8)",zIndex:2000,display:"flex",alignItems:"center",justifyContent:"center",padding:24}}
       onClick={e=>{if(e.target===e.currentTarget)onClose();}}>
-      <div style={{background:"#0F0B08",borderRadius:16,border:"1px solid #3D2B24",width:"100%",maxWidth:560,maxHeight:"90vh",overflowY:"auto",
+      <div style={{background:"#F5F2EE",borderRadius:16,border:"1px solid #B8AFA8",width:"100%",maxWidth:560,maxHeight:"90vh",overflowY:"auto",
         boxShadow:"0 32px 80px rgba(0,0,0,0.7)"}}>
         {/* Header */}
-        <div style={{padding:"24px 28px 20px",borderBottom:"1px solid #1A1008",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+        <div style={{padding:"24px 28px 20px",borderBottom:"1px solid #E2DDD8",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
           <div>
-            <div style={{fontFamily:"'Outfit',sans-serif",fontSize:10,color:"#5C4A42",letterSpacing:"0.14em",textTransform:"uppercase",fontWeight:600,marginBottom:4}}>
+            <div style={{fontFamily:"'Outfit',sans-serif",fontSize:10,color:"#8A6858",letterSpacing:"0.14em",textTransform:"uppercase",fontWeight:600,marginBottom:4}}>
               ▣ Google Slides Guide
             </div>
-            <div style={{fontFamily:"'Outfit',sans-serif",fontSize:18,fontWeight:700,color:"#F5F0EB"}}>
+            <div style={{fontFamily:"'Outfit',sans-serif",fontSize:18,fontWeight:700,color:"#1A1410"}}>
               Apply your palette to Slides
             </div>
           </div>
-          <button onClick={onClose} style={{background:"#1A1008",border:"1px solid #3D2B24",color:"#8C7B72",width:32,height:32,borderRadius:"50%",cursor:"pointer",fontSize:16,display:"flex",alignItems:"center",justifyContent:"center"}}>×</button>
+          <button onClick={onClose} style={{background:"#E2DDD8",border:"1px solid #B8AFA8",color:"#7A6860",width:32,height:32,borderRadius:"50%",cursor:"pointer",fontSize:16,display:"flex",alignItems:"center",justifyContent:"center"}}>×</button>
         </div>
 
         {/* Step progress */}
         <div style={{padding:"16px 28px 0",display:"flex",gap:6}}>
           {steps.map((st,i)=>(
             <div key={i} onClick={()=>setStep(i)} style={{flex:1,height:3,borderRadius:2,cursor:"pointer",
-              background:i<=step?"#C8874A":"#2A1A10",transition:"background 0.2s"}}/>
+              background:i<=step?"#B5703A":"#D4CEC8",transition:"background 0.2s"}}/>
           ))}
         </div>
 
         {/* Step content */}
         <div style={{padding:"24px 28px"}}>
           <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:16}}>
-            <div style={{width:36,height:36,borderRadius:10,background:"#1A1008",border:"1px solid #3D2B24",display:"flex",alignItems:"center",justifyContent:"center",fontSize:18}}>
+            <div style={{width:36,height:36,borderRadius:10,background:"#E2DDD8",border:"1px solid #B8AFA8",display:"flex",alignItems:"center",justifyContent:"center",fontSize:18}}>
               {s.icon}
             </div>
             <div>
-              <div style={{fontFamily:"'Outfit',sans-serif",fontSize:9,color:"#5C4A42",letterSpacing:"0.1em",textTransform:"uppercase",fontWeight:600}}>
+              <div style={{fontFamily:"'Outfit',sans-serif",fontSize:9,color:"#9A8878",letterSpacing:"0.1em",textTransform:"uppercase",fontWeight:600}}>
                 Step {step+1} of {steps.length}
               </div>
-              <div style={{fontFamily:"'Outfit',sans-serif",fontSize:16,fontWeight:700,color:"#F5F0EB"}}>{s.title}</div>
+              <div style={{fontFamily:"'Outfit',sans-serif",fontSize:16,fontWeight:700,color:"#1A1410"}}>{s.title}</div>
             </div>
           </div>
-          <p style={{fontFamily:"'Outfit',sans-serif",fontSize:13,fontWeight:300,color:"#B8A99A",lineHeight:1.7,marginBottom:20}}>
+          <p style={{fontFamily:"'Outfit',sans-serif",fontSize:13,fontWeight:300,color:"#9A8878",lineHeight:1.7,marginBottom:20}}>
             {s.desc}
           </p>
           {s.visual}
         </div>
 
         {/* Copy + Nav */}
-        <div style={{padding:"16px 28px 24px",borderTop:"1px solid #1A1008",display:"flex",gap:10,justifyContent:"space-between",alignItems:"center"}}>
+        <div style={{padding:"16px 28px 24px",borderTop:"1px solid #E2DDD8",display:"flex",gap:10,justifyContent:"space-between",alignItems:"center"}}>
           <button onClick={()=>{ cp(colors.map((c,i)=>`Slot ${i+1}: ${c}`).join("\n")); }}
-            style={{background:"#1A1008",border:"1px solid #3D2B24",color:"#B8A99A",padding:"9px 16px",borderRadius:8,cursor:"pointer",
+            style={{background:"#E2DDD8",border:"1px solid #B8AFA8",color:"#9A8878",padding:"9px 16px",borderRadius:8,cursor:"pointer",
               fontFamily:"'Outfit',sans-serif",fontSize:11,fontWeight:500,letterSpacing:"0.04em"}}>
             Copy all HEX codes
           </button>
           <div style={{display:"flex",gap:8}}>
             {step>0&&(
               <button onClick={()=>setStep(s=>s-1)}
-                style={{background:"#1A1008",border:"1px solid #3D2B24",color:"#B8A99A",padding:"9px 18px",borderRadius:8,cursor:"pointer",
+                style={{background:"#E2DDD8",border:"1px solid #B8AFA8",color:"#9A8878",padding:"9px 18px",borderRadius:8,cursor:"pointer",
                   fontFamily:"'Outfit',sans-serif",fontSize:11,fontWeight:500}}>
                 ← Back
               </button>
             )}
             {step<steps.length-1?(
               <button onClick={()=>setStep(s=>s+1)}
-                style={{background:"#C8874A",border:"none",color:"#0F0B08",padding:"9px 22px",borderRadius:8,cursor:"pointer",
+                style={{background:"#B5703A",border:"none",color:"#F5F2EE",padding:"9px 22px",borderRadius:8,cursor:"pointer",
                   fontFamily:"'Outfit',sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.08em"}}>
                 Next →
               </button>
             ):(
               <button onClick={onClose}
-                style={{background:"#C8874A",border:"none",color:"#0F0B08",padding:"9px 22px",borderRadius:8,cursor:"pointer",
+                style={{background:"#B5703A",border:"none",color:"#F5F2EE",padding:"9px 22px",borderRadius:8,cursor:"pointer",
                   fontFamily:"'Outfit',sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.08em"}}>
                 Done ✓
               </button>
@@ -317,7 +415,61 @@ function SlidesModal({colors, onClose}){
   );
 }
 
+
+const DARK = {
+  pageBg:"#0F0B08", panelBg:"#0A0703", border:"#1A1008", border2:"#2A1A10",
+  cardBg:"#12100D", headerBg:"#0F0B08", drawerBg:"#0A0703",
+  textPrimary:"#F5F0EB", textSecondary:"#D4C9BE", textMuted:"#8C7B72",
+  textDim:"#5C4A42", textFaint:"#3D2B24",
+  labelHi:"#A08878", labelMid:"#8C7B72", labelLo:"#6B5848",
+  swatchRing:"#F5F0EB", swatchGap:"#0F0B08",
+  ruleBtnBorder:"#3D2B24", ruleBtnText:"#B8A99A",
+  ruleBtnHoverBorder:"#8C7B72", ruleBtnHoverText:"#F5F0EB",
+  ruleBtnActiveBg:"#5C4A42", ruleBtnActiveBorder:"#8C7B72", ruleBtnActiveText:"#F5F0EB",
+  actionBg:"#1A1008", actionBorder:"#3D2B24", actionText:"#B8A99A",
+  actionHoverBorder:"#C8874A", actionHoverText:"#F5F0EB", actionHoverBg:"#2A1A10",
+  highlightBg:"#2A1510", highlightBorder:"#C8874A", highlightText:"#C8874A",
+  savedCardBg:"#12100D", savedCardBorder:"#2A1A10", savedCardBorderHover:"#5C4A42",
+  divider:"#3D2B24",
+  scrollTrack:"#1a1008", scrollThumb:"#5C4A42",
+  accent:"#C8874A", accentHover:"#E09050",
+  toastBg:"#1A1008", toastText:"#F5F0EB",
+  insightBorder:"#C8874A", insightCardBg:"#12100D",
+  mockupChrome:"#1A1208", mockupChromeUrl:"#0F0B08", mockupChromeBorder:"#2A1A10",
+  paletteBarShadow:"0 8px 32px rgba(0,0,0,0.4)",
+  mockupShadow:"0 24px 80px rgba(0,0,0,0.6)",
+  toneActiveBg:"#3D2B24", toneActiveBorder:"#8C7B72", toneActiveText:"#F5F0EB",
+  toneBorder:"#2A1A10", toneText:"#8C7B72",
+};
+const LIGHT = {
+  pageBg:"#F5F2EE", panelBg:"#EDEAE6", border:"#DDD8D2", border2:"#C8C0B8",
+  cardBg:"#F0ECE8", headerBg:"#F5F2EE", drawerBg:"#E8E4DF",
+  textPrimary:"#1A1410", textSecondary:"#3D2B24", textMuted:"#7A6860",
+  textDim:"#9A8878", textFaint:"#9A8878",
+  labelHi:"#8A6858", labelMid:"#7A6860", labelLo:"#9A8878",
+  swatchRing:"#2A1A10", swatchGap:"#F5F2EE",
+  ruleBtnBorder:"#C8C0B8", ruleBtnText:"#7A6860",
+  ruleBtnHoverBorder:"#8A6858", ruleBtnHoverText:"#1A1410",
+  ruleBtnActiveBg:"#2A1A10", ruleBtnActiveBorder:"#2A1A10", ruleBtnActiveText:"#F5F2EE",
+  actionBg:"#EDE9E4", actionBorder:"#C8C0B8", actionText:"#5C4A42",
+  actionHoverBorder:"#B5703A", actionHoverText:"#2A1A10", actionHoverBg:"#E5E0DA",
+  highlightBg:"#F5EDE6", highlightBorder:"#B5703A", highlightText:"#B5703A",
+  savedCardBg:"#EDEAE6", savedCardBorder:"#C8C0B8", savedCardBorderHover:"#8A6858",
+  divider:"#C8C0B8",
+  scrollTrack:"#EDEAE6", scrollThumb:"#C8C0B8",
+  accent:"#B5703A", accentHover:"#C87840",
+  toastBg:"#2A1A10", toastText:"#F5F2EE",
+  insightBorder:"#B5703A", insightCardBg:"#F0ECE8",
+  mockupChrome:"#E8E4E0", mockupChromeUrl:"#DEDBD6", mockupChromeBorder:"#D0C8C0",
+  paletteBarShadow:"0 4px 20px rgba(0,0,0,0.12)",
+  mockupShadow:"0 8px 40px rgba(0,0,0,0.12)",
+  toneActiveBg:"#2A1A10", toneActiveBorder:"#2A1A10", toneActiveText:"#F5F2EE",
+  toneBorder:"#C8C0B8", toneText:"#7A6860",
+};
+
 function App(){
+  const[dark,setDark]=useState(false);
+  const T=dark?DARK:LIGHT;
   const[selected,setSelected]=useState([]);
   const[rule,setRule]=useState("complementary");
   const[tone,setTone]=useState("balanced");
@@ -328,7 +480,6 @@ function App(){
   const[aiInsight,setAiInsight]=useState("");
   const[toast,setToast]=useState({visible:false,message:""});
   const[hoveredSwatch,setHoveredSwatch]=useState(null);
-  const[showSlides,setShowSlides]=useState(false);
   const[savedPalettes,setSavedPalettes]=useState([]);
   const[showSaved,setShowSaved]=useState(false);
   const[paletteName,setPaletteName]=useState("");
@@ -411,61 +562,69 @@ function App(){
   };
 
   return(
-    <div style={{minHeight:"100vh",background:"#0F0B08",fontFamily:"'Outfit',sans-serif",color:"#F5F0EB"}}>
+    <div style={{minHeight:"100vh",background:T.pageBg,fontFamily:"'Outfit',sans-serif",color:T.textPrimary,transition:"background .3s,color .3s"}}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap');
         *{box-sizing:border-box;margin:0;padding:0;}
         ::-webkit-scrollbar{width:4px;}
-        ::-webkit-scrollbar-track{background:#1a1008;}
-        ::-webkit-scrollbar-thumb{background:#5C4A42;border-radius:2px;}
+        ::-webkit-scrollbar-track{background:${T.scrollTrack};}
+        ::-webkit-scrollbar-thumb{background:${T.scrollThumb};border-radius:2px;}
         .swatch-dot{width:36px;height:36px;border-radius:50%;cursor:pointer;transition:transform .15s ease,box-shadow .15s ease;border:none;outline:none;flex-shrink:0;}
         .swatch-dot:hover{transform:scale(1.28);z-index:2;position:relative;}
-        .swatch-dot.sel{transform:scale(1.18);box-shadow:0 0 0 2px #0F0B08,0 0 0 4px #F5F0EB !important;z-index:5;position:relative;}
-        .rule-btn{padding:8px 16px;border-radius:40px;border:1px solid #3D2B24;background:transparent;color:#B8A99A;cursor:pointer;font-family:'Outfit',sans-serif;font-size:11px;font-weight:500;letter-spacing:.06em;transition:all .2s ease;white-space:nowrap;}
-        .rule-btn:hover{border-color:#8C7B72;color:#F5F0EB;}
-        .rule-btn.active{background:#5C4A42;border-color:#8C7B72;color:#F5F0EB;}
-        .gen-btn{background:#C8874A;color:#0F0B08;border:none;padding:14px 36px;border-radius:40px;cursor:pointer;font-family:'Outfit',sans-serif;font-size:12px;font-weight:700;letter-spacing:.12em;transition:all .2s ease;text-transform:uppercase;}
-        .gen-btn:hover:not(:disabled){background:#E09050;transform:translateY(-1px);box-shadow:0 8px 24px rgba(200,135,74,.3);}
+        .swatch-dot.sel{transform:scale(1.18);box-shadow:0 0 0 2px ${T.swatchGap},0 0 0 4px ${T.swatchRing} !important;z-index:5;position:relative;}
+        .rule-btn{padding:8px 16px;border-radius:40px;border:1px solid ${T.ruleBtnBorder};background:transparent;color:${T.ruleBtnText};cursor:pointer;font-family:'Outfit',sans-serif;font-size:11px;font-weight:500;letter-spacing:.06em;transition:all .2s ease;white-space:nowrap;}
+        .rule-btn:hover{border-color:${T.ruleBtnHoverBorder};color:${T.ruleBtnHoverText};}
+        .rule-btn.active{background:${T.ruleBtnActiveBg};border-color:${T.ruleBtnActiveBorder};color:${T.ruleBtnActiveText};}
+        .gen-btn{background:${T.accent};color:#ffffff;border:none;padding:14px 36px;border-radius:40px;cursor:pointer;font-family:'Outfit',sans-serif;font-size:12px;font-weight:700;letter-spacing:.12em;transition:all .2s ease;text-transform:uppercase;}
+        .gen-btn:hover:not(:disabled){background:${T.accentHover};transform:translateY(-1px);box-shadow:0 8px 24px rgba(200,135,74,.3);}
         .gen-btn:disabled{opacity:.4;cursor:not-allowed;}
         .chip{position:relative;border-radius:12px;overflow:hidden;cursor:pointer;transition:transform .2s ease;}
         .chip:hover{transform:scale(1.06);}
-        .action-btn{display:flex;align-items:center;gap:8px;padding:10px 18px;border-radius:8px;background:#1A1008;border:1px solid #3D2B24;color:#B8A99A;cursor:pointer;font-family:'Outfit',sans-serif;font-size:11px;letter-spacing:.04em;transition:all .2s;font-weight:500;text-align:left;width:100%;}
-        .action-btn:hover{border-color:#C8874A;color:#F5F0EB;background:#2A1A10;}
-        .action-btn.highlight{border-color:#C8874A;background:#2A1510;}
-        .action-btn.highlight:hover{background:#3A2010;}
-        .divider{height:1px;background:linear-gradient(90deg,transparent,#3D2B24,transparent);}
+        .action-btn{display:flex;align-items:center;gap:8px;padding:10px 18px;border-radius:8px;background:${T.actionBg};border:1px solid ${T.actionBorder};color:${T.actionText};cursor:pointer;font-family:'Outfit',sans-serif;font-size:11px;letter-spacing:.04em;transition:all .2s;font-weight:500;text-align:left;width:100%;}
+        .action-btn:hover{border-color:${T.actionHoverBorder};color:${T.actionHoverText};background:${T.actionHoverBg};}
+        .action-btn.highlight{border-color:${T.highlightBorder};background:${T.highlightBg};color:${T.highlightText};}
+        .action-btn.highlight:hover{background:${T.actionHoverBg};}
+        .divider{height:1px;background:linear-gradient(90deg,transparent,${T.divider},transparent);}
         @keyframes fadeUp{from{opacity:0;transform:translateY(10px);}to{opacity:1;transform:translateY(0);}}
         .fade-up{animation:fadeUp .35s ease forwards;}
         @keyframes bounce{0%,80%,100%{transform:translateY(0)}40%{transform:translateY(-6px)}}
-        .saved-card{background:#12100D;border:1px solid #2A1A10;border-radius:10px;padding:12px;cursor:pointer;transition:border-color .15s;}
-        .saved-card:hover{border-color:#5C4A42;}
+        .saved-card{background:${T.savedCardBg};border:1px solid ${T.savedCardBorder};border-radius:10px;padding:12px;cursor:pointer;transition:border-color .15s;}
+        .saved-card:hover{border-color:${T.savedCardBorderHover};}
       `}</style>
 
       {/* HEADER */}
-      <div style={{padding:"36px 48px 28px",borderBottom:"1px solid #1A1008"}}>
-        <div style={{marginBottom:6,fontSize:11,color:"#5C4A42",letterSpacing:"0.15em",textTransform:"uppercase",fontWeight:500}}>◆ Colour Intelligence</div>
+      <div style={{padding:"36px 48px 28px",borderBottom:"1px solid #E2DDD8"}}>
+        <div style={{marginBottom:6,fontSize:11,color:T.labelMid,letterSpacing:"0.15em",textTransform:"uppercase",fontWeight:500}}>◆ Colour Intelligence</div>
         <div style={{display:"flex",alignItems:"baseline",gap:12,marginBottom:6}}>
-          <h1 style={{fontSize:48,fontWeight:800,letterSpacing:"-0.02em",lineHeight:1,color:"#F5F0EB"}}>SQUARE</h1>
-          <h1 style={{fontSize:48,fontWeight:300,letterSpacing:"-0.01em",lineHeight:1,color:"#8C7B72"}}>Colour Studio</h1>
+          <h1 style={{fontSize:48,fontWeight:800,letterSpacing:"-0.02em",lineHeight:1,color:T.textPrimary}}>SQUARE</h1>
+          <h1 style={{fontSize:48,fontWeight:300,letterSpacing:"-0.01em",lineHeight:1,color:T.textMuted}}>Colour Studio</h1>
         </div>
-        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-          <p style={{fontSize:13,color:"#5C4A42",fontWeight:300,letterSpacing:"0.04em"}}>for architects, interiors & UX designers</p>
+        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:10}}>
+          <p style={{fontSize:13,color:T.textMuted,fontWeight:300,letterSpacing:"0.04em"}}>for architects, interiors & UX designers</p>
           <button onClick={()=>setShowSaved(v=>!v)}
-            style={{display:"flex",alignItems:"center",gap:6,background:showSaved?"#2A1A10":"#1A1008",border:"1px solid #3D2B24",
-              color:showSaved?"#C8874A":"#8C7B72",padding:"7px 14px",borderRadius:40,cursor:"pointer",
+            style={{display:"flex",alignItems:"center",gap:6,background:showSaved?"#D4CEC8":"#E2DDD8",border:"1px solid #B8AFA8",
+              color:showSaved?T.accent:T.textMuted,padding:"7px 14px",borderRadius:40,cursor:"pointer",
               fontFamily:"'Outfit',sans-serif",fontSize:10,fontWeight:600,letterSpacing:"0.1em",transition:"all .2s"}}>
             ⬡ Saved Palettes {savedPalettes.length>0&&`(${savedPalettes.length})`}
           </button>
+          <button onClick={()=>setDark(d=>!d)}
+            style={{display:"flex",alignItems:"center",gap:7,background:T.cardBg,
+              border:`1px solid ${T.border2}`,color:T.textMuted,
+              padding:"7px 14px",borderRadius:40,cursor:"pointer",
+              fontFamily:"'Outfit',sans-serif",fontSize:11,fontWeight:600,
+              letterSpacing:"0.08em",transition:"all .3s",marginLeft:8}}>
+            {dark?"☀ Light":"◑ Dark"}
+          </button>
         </div>
-        <div style={{height:1,background:"linear-gradient(90deg,#3D2B24,transparent)",marginTop:20}}/>
+        <div style={{height:1,background:`linear-gradient(90deg,${T.divider},transparent)`,marginTop:20}}/>
       </div>
 
       {/* SAVED PALETTES DRAWER */}
       {showSaved&&(
-        <div style={{background:"#0A0703",borderBottom:"1px solid #1A1008",padding:"24px 48px"}}>
-          <div style={{fontSize:10,color:"#5C4A42",letterSpacing:"0.14em",textTransform:"uppercase",fontWeight:600,marginBottom:16}}>Saved Palettes</div>
+        <div style={{background:T.drawerBg,borderBottom:`1px solid ${T.border2}`,padding:"24px 48px"}}>
+          <div style={{fontSize:10,color:T.labelHi,letterSpacing:"0.14em",textTransform:"uppercase",fontWeight:600,marginBottom:16}}>Saved Palettes</div>
           {savedPalettes.length===0?(
-            <div style={{fontStyle:"italic",fontSize:13,color:"#3D2B24",fontWeight:300}}>No saved palettes yet — generate one and save it below.</div>
+            <div style={{fontStyle:"italic",fontSize:13,color:T.textDim,fontWeight:300}}>No saved palettes yet — generate one and save it below.</div>
           ):(
             <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(220px,1fr))",gap:12}}>
               {savedPalettes.map(p=>(
@@ -473,12 +632,12 @@ function App(){
                   <div style={{display:"flex",gap:3,marginBottom:10,borderRadius:6,overflow:"hidden",height:28}}>
                     {p.colors.map((c,i)=><div key={i} style={{flex:1,background:c}}/>)}
                   </div>
-                  <div style={{fontSize:11,fontWeight:600,color:"#D4C9BE",marginBottom:2}}>{p.name}</div>
-                  <div style={{fontSize:9,color:"#5C4A42",letterSpacing:"0.06em",marginBottom:10}}>{p.rule.toUpperCase()} · {p.colors.length} colours</div>
+                  <div style={{fontSize:11,fontWeight:600,color:T.textSecondary,marginBottom:2}}>{p.name}</div>
+                  <div style={{fontSize:9,color:T.textDim,letterSpacing:"0.06em",marginBottom:10}}>{p.rule.toUpperCase()} · {p.colors.length} colours</div>
                   <div style={{display:"flex",gap:6}}>
-                    <button onClick={()=>loadPalette(p)} style={{flex:1,background:"#1A1008",border:"1px solid #3D2B24",color:"#B8A99A",padding:"5px 0",borderRadius:6,cursor:"pointer",fontSize:10,fontFamily:"'Outfit',sans-serif",fontWeight:500}}>Load</button>
-                    <button onClick={()=>{cp(p.colors.join(", "));showToast("HEX copied!");}} style={{flex:1,background:"#1A1008",border:"1px solid #3D2B24",color:"#B8A99A",padding:"5px 0",borderRadius:6,cursor:"pointer",fontSize:10,fontFamily:"'Outfit',sans-serif",fontWeight:500}}>Copy</button>
-                    <button onClick={()=>deletePalette(p.id)} style={{background:"#1A1008",border:"1px solid #2A1A10",color:"#5C4A42",padding:"5px 10px",borderRadius:6,cursor:"pointer",fontSize:10,fontFamily:"'Outfit',sans-serif"}}>✕</button>
+                    <button onClick={()=>loadPalette(p)} style={{flex:1,background:"#E2DDD8",border:"1px solid #B8AFA8",color:"#9A8878",padding:"5px 0",borderRadius:6,cursor:"pointer",fontSize:10,fontFamily:"'Outfit',sans-serif",fontWeight:500}}>Load</button>
+                    <button onClick={()=>{cp(p.colors.join(", "));showToast("HEX copied!");}} style={{flex:1,background:"#E2DDD8",border:"1px solid #B8AFA8",color:"#9A8878",padding:"5px 0",borderRadius:6,cursor:"pointer",fontSize:10,fontFamily:"'Outfit',sans-serif",fontWeight:500}}>Copy</button>
+                    <button onClick={()=>deletePalette(p.id)} style={{background:"#E2DDD8",border:"1px solid #D4CEC8",color:"#9A8878",padding:"5px 10px",borderRadius:6,cursor:"pointer",fontSize:10,fontFamily:"'Outfit',sans-serif"}}>✕</button>
                   </div>
                 </div>
               ))}
@@ -490,21 +649,21 @@ function App(){
       <div style={{display:"grid",gridTemplateColumns:"1fr 380px",minHeight:"calc(100vh - 160px)"}}>
 
         {/* LEFT */}
-        <div style={{padding:"36px 48px",borderRight:"1px solid #1A1008",overflowY:"auto"}}>
+        <div style={{padding:"36px 48px",borderRight:"1px solid #E2DDD8",overflowY:"auto"}}>
 
           {/* Selected */}
           <div style={{marginBottom:32}}>
             <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:14}}>
-              <span style={{fontSize:10,color:"#5C4A42",letterSpacing:"0.14em",textTransform:"uppercase",fontWeight:600}}>Selected — {selected.length} / 4</span>
-              {selected.length>0&&<button onClick={()=>{setSelected([]);setSuggestions([]);setGenerated(false);setAiInsight("");}} style={{background:"none",border:"none",color:"#5C4A42",cursor:"pointer",fontSize:10,letterSpacing:"0.1em",fontWeight:500}}>CLEAR ALL</button>}
+              <span style={{fontSize:10,color:"#8A6858",letterSpacing:"0.14em",textTransform:"uppercase",fontWeight:600}}>Selected — {selected.length} / 4</span>
+              {selected.length>0&&<button onClick={()=>{setSelected([]);setSuggestions([]);setGenerated(false);setAiInsight("");}} style={{background:"none",border:"none",color:"#9A8878",cursor:"pointer",fontSize:10,letterSpacing:"0.1em",fontWeight:500}}>CLEAR ALL</button>}
             </div>
             <div style={{display:"flex",gap:12,flexWrap:"wrap",minHeight:60}}>
               {selected.length===0
-                ?<div style={{fontWeight:300,color:"#3D2B24",fontSize:14,lineHeight:"60px",fontStyle:"italic"}}>Pick colours from the swatch below…</div>
+                ?<div style={{fontWeight:300,color:T.textDim,fontSize:14,lineHeight:"60px",fontStyle:"italic"}}>Pick colours from the swatch below…</div>
                 :selected.map(c=>(
                   <div key={c} onClick={()=>toggleColor(c)} style={{width:56,height:56,borderRadius:10,background:c,cursor:"pointer",position:"relative",transition:"transform .15s",boxShadow:`0 4px 16px ${c}55`}} title={`Remove ${c}`}>
                     <div style={{position:"absolute",inset:0,borderRadius:10,display:"flex",alignItems:"center",justifyContent:"center",opacity:0,background:"rgba(0,0,0,0.4)",transition:"opacity .15s",fontSize:18}} onMouseEnter={e=>e.currentTarget.style.opacity=1} onMouseLeave={e=>e.currentTarget.style.opacity=0}>×</div>
-                    <div style={{position:"absolute",bottom:-20,left:"50%",transform:"translateX(-50%)",fontSize:9,color:"#5C4A42",whiteSpace:"nowrap",fontWeight:400}}>{c}</div>
+                    <div style={{position:"absolute",bottom:-20,left:"50%",transform:"translateX(-50%)",fontSize:9,color:T.textDim,whiteSpace:"nowrap",fontWeight:400}}>{c}</div>
                   </div>
                 ))
               }
@@ -515,39 +674,39 @@ function App(){
 
           {/* Harmony */}
           <div style={{marginBottom:28}}>
-            <div style={{fontSize:10,color:"#5C4A42",letterSpacing:"0.14em",textTransform:"uppercase",marginBottom:12,fontWeight:600}}>Harmony Rule</div>
+            <div style={{fontSize:10,color:"#9A8878",letterSpacing:"0.14em",textTransform:"uppercase",marginBottom:12,fontWeight:600}}>Harmony Rule</div>
             <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
               {HARMONY_RULES.map(r=>(
                 <button key={r.id} className={`rule-btn ${rule===r.id?"active":""}`} onClick={()=>setRule(r.id)} title={r.desc}>{r.label}</button>
               ))}
             </div>
-            <div style={{marginTop:8,fontWeight:300,color:"#5C4A42",fontSize:13,fontStyle:"italic"}}>{HARMONY_RULES.find(r=>r.id===rule)?.desc}</div>
+            <div style={{marginTop:8,fontWeight:300,color:T.textMuted,fontSize:13,fontStyle:"italic"}}>{HARMONY_RULES.find(r=>r.id===rule)?.desc}</div>
           </div>
 
 
           {/* Tone */}
           <div style={{marginBottom:28}}>
-            <div style={{fontSize:10,color:"#5C4A42",letterSpacing:"0.14em",textTransform:"uppercase",marginBottom:12,fontWeight:600}}>Colour Tone</div>
+            <div style={{fontSize:10,color:"#9A8878",letterSpacing:"0.14em",textTransform:"uppercase",marginBottom:12,fontWeight:600}}>Colour Tone</div>
             <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:6}}>
               {TONES.map(t=>(
                 <button key={t.id} onClick={()=>setTone(t.id)}
-                  style={{padding:"10px 8px",borderRadius:8,border:`1px solid ${tone===t.id?"#8C7B72":"#2A1A10"}`,
-                    background:tone===t.id?"#3D2B24":"transparent",cursor:"pointer",transition:"all .15s",textAlign:"center"}}>
+                  style={{padding:"10px 8px",borderRadius:8,border:`1px solid ${tone===t.id?"#2A1A10":"#C8C0B8"}`,
+                    background:tone===t.id?"#2A1A10":"transparent",cursor:"pointer",transition:"all .15s",textAlign:"center"}}>
                   <div style={{display:"flex",gap:2,justifyContent:"center",marginBottom:6}}>
-                    {["#C8874A","#A07878","#9E9088","#C4B8B0"].map((c,i)=>{
+                    {["#B5703A","#A07878","#9E9088","#C4B8B0"].map((c,i)=>{
                       const tm=TONES.find(x=>x.id===t.id);
-                      const[hh,ss,ll]=hexToHsl(["#C8874A","#7B8FAB","#6B9B7A","#9B7BAB"][i]);
+                      const[hh,ss,ll]=hexToHsl(["#B5703A","#7B8FAB","#6B9B7A","#9B7BAB"][i]);
                       const ns=Math.max(0,Math.min(100,ss*tm.sMult));
                       const nl=Math.max(0,Math.min(96,ll+tm.lShift));
                       return <div key={i} style={{width:10,height:10,borderRadius:2,background:hslToHex(hh,ns,nl)}}/>;
                     })}
                   </div>
                   <div style={{fontSize:10,fontFamily:"'Outfit',sans-serif",fontWeight:600,
-                    color:tone===t.id?"#F5F0EB":"#8C7B72",letterSpacing:"0.04em"}}>{t.label}</div>
+                    color:tone===t.id?T.toneActiveText:T.toneText,letterSpacing:"0.04em"}}>{t.label}</div>
                 </button>
               ))}
             </div>
-            <div style={{marginTop:8,fontWeight:300,color:"#5C4A42",fontSize:12,fontStyle:"italic"}}>
+            <div style={{marginTop:8,fontWeight:300,color:T.textMuted,fontSize:12,fontStyle:"italic"}}>
               {TONES.find(t=>t.id===tone)?.desc}
             </div>
           </div>
@@ -563,7 +722,7 @@ function App(){
 
           {/* Swatch */}
           <div>
-            <div style={{fontSize:10,color:"#5C4A42",letterSpacing:"0.14em",textTransform:"uppercase",marginBottom:16,fontWeight:600}}>Colour Swatch</div>
+            <div style={{fontSize:10,color:"#9A8878",letterSpacing:"0.14em",textTransform:"uppercase",marginBottom:16,fontWeight:600}}>Colour Swatch</div>
             <div style={{display:"flex",flexWrap:"wrap",gap:8}}>
               {SWATCHES.map(c=>(
                 <button key={c} className={`swatch-dot ${selected.includes(c)?"sel":""}`}
@@ -572,7 +731,7 @@ function App(){
               ))}
             </div>
             {hoveredSwatch&&(
-              <div style={{marginTop:12,fontSize:11,color:"#8C7B72",display:"flex",alignItems:"center",gap:8,fontWeight:400}}>
+              <div style={{marginTop:12,fontSize:11,color:"#9A8878",display:"flex",alignItems:"center",gap:8,fontWeight:400}}>
                 <div style={{width:16,height:16,borderRadius:4,background:hoveredSwatch}}/>{hoveredSwatch}
               </div>
             )}
@@ -580,27 +739,27 @@ function App(){
         </div>
 
         {/* RIGHT */}
-        <div style={{padding:"36px 32px",background:"#0A0703",overflowY:"auto",display:"flex",flexDirection:"column",gap:20}}>
-          <span style={{fontSize:10,color:"#5C4A42",letterSpacing:"0.14em",textTransform:"uppercase",fontWeight:600}}>Palette Preview</span>
+        <div style={{padding:"36px 32px",background:T.panelBg,overflowY:"auto",display:"flex",flexDirection:"column",gap:20}}>
+          <span style={{fontSize:10,color:"#8A6858",letterSpacing:"0.14em",textTransform:"uppercase",fontWeight:600}}>Palette Preview</span>
 
           {!generated&&!loading&&(
             <div style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",opacity:.3,paddingTop:40}}>
-              <div style={{fontSize:48,lineHeight:1,marginBottom:12,color:"#5C4A42"}}>◈</div>
-              <div style={{fontWeight:300,fontStyle:"italic",fontSize:14,color:"#8C7B72",textAlign:"center"}}>Select colours & generate<br/>to reveal your palette</div>
+              <div style={{fontSize:48,lineHeight:1,marginBottom:12,color:T.textDim}}>◈</div>
+              <div style={{fontWeight:300,fontStyle:"italic",fontSize:14,color:"#9A8878",textAlign:"center"}}>Select colours & generate<br/>to reveal your palette</div>
             </div>
           )}
 
           {generated&&(
             <div className="fade-up">
               {/* Bar */}
-              <div style={{borderRadius:12,overflow:"hidden",height:72,display:"flex",marginBottom:20,boxShadow:"0 8px 32px rgba(0,0,0,0.4)",cursor:"pointer"}}
+              <div style={{borderRadius:12,overflow:"hidden",height:72,display:"flex",marginBottom:20,boxShadow:T.paletteBarShadow,cursor:"pointer"}}
                 onClick={()=>{cp(allColors.join(", "));showToast("All colours copied!");}} title="Copy all">
                 {allColors.map((c,i)=><div key={i} style={{flex:1,background:c}}/>)}
               </div>
 
               {/* Base */}
               <div style={{marginBottom:18}}>
-                <div style={{fontSize:10,color:"#3D2B24",letterSpacing:"0.1em",textTransform:"uppercase",marginBottom:10,fontWeight:600}}>Your Base</div>
+                <div style={{fontSize:10,color:"#8A6858",letterSpacing:"0.1em",textTransform:"uppercase",marginBottom:10,fontWeight:600}}>Your Base</div>
                 <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
                   {selected.map(c=>(
                     <div key={c} className="chip" style={{width:50,height:50,background:c,boxShadow:`0 4px 12px ${c}44`}} onClick={()=>{cp(c);showToast(`${c} copied`);}} title={c}/>
@@ -610,20 +769,77 @@ function App(){
 
               {/* Suggestions */}
               <div style={{marginBottom:22}}>
-                <div style={{fontSize:10,color:"#3D2B24",letterSpacing:"0.1em",textTransform:"uppercase",marginBottom:10,fontWeight:600}}>Suggested — {HARMONY_RULES.find(r=>r.id===rule)?.label}</div>
+                <div style={{fontSize:10,color:"#8A6858",letterSpacing:"0.1em",textTransform:"uppercase",marginBottom:10,fontWeight:600}}>Suggested — {HARMONY_RULES.find(r=>r.id===rule)?.label}</div>
                 <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
                   {suggestions.map((c,i)=>(
                     <div key={i} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:5}}>
                       <div className="chip" style={{width:50,height:50,background:c,boxShadow:`0 4px 16px ${c}55`}} onClick={()=>{cp(c);showToast(`${c} copied`);}} title={c}/>
-                      <span style={{fontSize:9,color:"#5C4A42",fontWeight:400}}>{c}</span>
+                      <span style={{fontSize:9,color:"#7A6860",fontWeight:400}}>{c}</span>
                     </div>
                   ))}
                 </div>
               </div>
 
+
+              {/* COLOUR PROPORTIONS */}
+              <div style={{marginBottom:22}}>
+                <div style={{fontSize:10,color:T.labelHi,letterSpacing:"0.1em",textTransform:"uppercase",marginBottom:4,fontWeight:600}}>
+                  Colour Proportions
+                </div>
+                <div style={{fontSize:11,color:T.textMuted,fontWeight:300,fontStyle:"italic",marginBottom:12}}>
+                  60–30–10 rule — how much of each colour to use
+                </div>
+                {/* Visual bar */}
+                <div style={{display:"flex",borderRadius:8,overflow:"hidden",height:20,marginBottom:16,boxShadow:`0 2px 8px rgba(0,0,0,0.08)`}}>
+                  {getProportions(allColors).map((p,i)=>(
+                    <div key={i} style={{width:`${p.pct}%`,background:p.hex,transition:"width .4s ease",
+                      display:"flex",alignItems:"center",justifyContent:"center"}}>
+                      {p.pct>=10&&<span style={{fontSize:8,fontWeight:700,color:lum(p.hex)>.5?"rgba(0,0,0,0.5)":"rgba(255,255,255,0.6)",letterSpacing:"0.04em"}}>{p.pct}%</span>}
+                    </div>
+                  ))}
+                </div>
+                {/* Rows */}
+                <div style={{display:"flex",flexDirection:"column",gap:6}}>
+                  {getProportions(allColors).map((p,i)=>(
+                    <div key={i} style={{display:"flex",alignItems:"center",gap:10,
+                      background:T.cardBg,borderRadius:8,padding:"8px 10px",
+                      border:`1px solid ${T.border}`}}>
+                      {/* Swatch */}
+                      <div style={{width:28,height:28,borderRadius:6,background:p.hex,flexShrink:0,
+                        boxShadow:`0 2px 8px ${p.hex}44`}}/>
+                      {/* Bar + label */}
+                      <div style={{flex:1,minWidth:0}}>
+                        <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",marginBottom:4}}>
+                          <span style={{fontSize:10,fontWeight:700,color:T.textPrimary,letterSpacing:"0.04em"}}>{p.role}</span>
+                          <span style={{fontSize:11,fontWeight:800,color:p.hex,letterSpacing:"-0.01em"}}>{p.rule}</span>
+                        </div>
+                        {/* Progress bar */}
+                        <div style={{height:4,borderRadius:2,background:T.border,overflow:"hidden"}}>
+                          <div style={{height:"100%",width:`${Math.min(p.pct/60*100,100)}%`,background:p.hex,
+                            borderRadius:2,transition:"width .4s ease"}}/>
+                        </div>
+                        <div style={{fontSize:9,color:T.textDim,marginTop:4,lineHeight:1.4}}>{p.use}</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                {/* Rule footnote */}
+                <div style={{marginTop:10,padding:"8px 10px",background:T.cardBg,borderRadius:6,
+                  borderLeft:`2px solid ${T.accent}`}}>
+                  <div style={{fontSize:9,color:T.labelHi,fontWeight:600,letterSpacing:"0.08em",textTransform:"uppercase",marginBottom:3}}>
+                    Design Rule
+                  </div>
+                  <p style={{fontSize:10,color:T.textMuted,lineHeight:1.6,fontWeight:300}}>
+                    The <strong style={{color:T.textSecondary}}>60-30-10 rule</strong> keeps visual hierarchy clear. 
+                    Your dominant colour grounds the composition, the secondary adds depth, 
+                    and the accent draws the eye exactly where you need it.
+                  </p>
+                </div>
+              </div>
+
               {/* Preview strips */}
               <div style={{marginBottom:22}}>
-                <div style={{fontSize:10,color:"#3D2B24",letterSpacing:"0.1em",textTransform:"uppercase",marginBottom:10,fontWeight:600}}>Applied Preview</div>
+                <div style={{fontSize:10,color:"#8A6858",letterSpacing:"0.1em",textTransform:"uppercase",marginBottom:10,fontWeight:600}}>Applied Preview</div>
                 <div style={{borderRadius:10,overflow:"hidden",height:52,marginBottom:8,position:"relative",boxShadow:"0 4px 16px rgba(0,0,0,0.3)"}}>
                   <div style={{position:"absolute",inset:0,display:"flex"}}>
                     <div style={{flex:3,background:allColors[0]||"#ccc"}}/><div style={{flex:1.5,background:allColors[1]||"#999"}}/><div style={{flex:1,background:allColors[2]||"#666"}}/>
@@ -634,7 +850,7 @@ function App(){
                   </div>
                   <div style={{position:"absolute",bottom:4,right:8,fontSize:8,color:"rgba(255,255,255,0.45)",fontWeight:500,letterSpacing:"0.08em"}}>INTERIOR</div>
                 </div>
-                <div style={{borderRadius:10,overflow:"hidden",height:44,background:allColors[0]||"#1a1a1a",padding:"0 14px",display:"flex",alignItems:"center",gap:10,boxShadow:"0 4px 16px rgba(0,0,0,0.3)"}}>
+                <div style={{borderRadius:10,overflow:"hidden",height:44,background:allColors[0]||"#ffffff",padding:"0 14px",display:"flex",alignItems:"center",gap:10,boxShadow:"0 4px 16px rgba(0,0,0,0.3)"}}>
                   <div style={{width:56,height:7,borderRadius:4,background:allColors[2]||"#fff",opacity:.85}}/>
                   <div style={{flex:1,height:4,borderRadius:4,background:allColors[1]||"#ccc",opacity:.5}}/>
                   <div style={{width:28,height:22,borderRadius:6,background:allColors[3]||allColors[2]}}/>
@@ -644,15 +860,15 @@ function App(){
 
               {/* AI Insight */}
               {insightLoading&&(
-                <div style={{background:"#12100D",borderLeft:"2px solid #3D2B24",borderRadius:"0 8px 8px 0",padding:"14px 16px",marginBottom:8,display:"flex",alignItems:"center",gap:8}}>
-                  {[0,1,2].map(i=><div key={i} style={{width:5,height:5,borderRadius:"50%",background:"#5C4A42",animation:`bounce 1s ${i*.18}s infinite`}}/>)}
-                  <span style={{fontSize:11,color:"#5C4A42",fontStyle:"italic",marginLeft:4}}>Generating insight…</span>
+                <div style={{background:T.insightCardBg,borderLeft:`2px solid ${T.border2}`,borderRadius:"0 8px 8px 0",padding:"14px 16px",marginBottom:8,display:"flex",alignItems:"center",gap:8}}>
+                  {[0,1,2].map(i=><div key={i} style={{width:5,height:5,borderRadius:"50%",background:"#9A8878",animation:`bounce 1s ${i*.18}s infinite`}}/>)}
+                  <span style={{fontSize:11,color:T.textMuted,fontStyle:"italic",marginLeft:4}}>Generating insight…</span>
                 </div>
               )}
               {aiInsight&&!insightLoading&&(
-                <div style={{background:"#12100D",borderLeft:"2px solid #C8874A",borderRadius:"0 8px 8px 0",padding:"14px 16px",marginBottom:8}}>
-                  <div style={{fontSize:9,color:"#8C7B72",letterSpacing:"0.12em",textTransform:"uppercase",marginBottom:8,fontWeight:600}}>✦ AI Design Insight</div>
-                  <p style={{fontSize:13,lineHeight:1.65,color:"#D4C9BE",fontStyle:"italic",fontWeight:300}}>{aiInsight}</p>
+                <div style={{background:T.insightCardBg,borderLeft:`2px solid ${T.insightBorder}`,borderRadius:"0 8px 8px 0",padding:"14px 16px",marginBottom:8}}>
+                  <div style={{fontSize:9,color:"#9A8878",letterSpacing:"0.12em",textTransform:"uppercase",marginBottom:8,fontWeight:600}}>✦ AI Design Insight</div>
+                  <p style={{fontSize:13,lineHeight:1.65,color:T.textSecondary,fontStyle:"italic",fontWeight:300}}>{aiInsight}</p>
                 </div>
               )}
 
@@ -660,16 +876,16 @@ function App(){
 
               {/* SAVE SECTION */}
               <div style={{marginBottom:18}}>
-                <div style={{fontSize:10,color:"#3D2B24",letterSpacing:"0.1em",textTransform:"uppercase",marginBottom:10,fontWeight:600}}>Save Palette</div>
+                <div style={{fontSize:10,color:"#8A6858",letterSpacing:"0.1em",textTransform:"uppercase",marginBottom:10,fontWeight:600}}>Save Palette</div>
                 {nameMode?(
                   <div style={{display:"flex",gap:8}}>
                     <input value={paletteName} onChange={e=>setPaletteName(e.target.value)}
                       onKeyDown={e=>{if(e.key==="Enter")savePalette();if(e.key==="Escape"){setNameMode(false);setPaletteName("");}}}
                       placeholder="Name this palette…" autoFocus
-                      style={{flex:1,background:"#1A1008",border:"1px solid #5C4A42",color:"#F5F0EB",padding:"9px 12px",borderRadius:8,
+                      style={{flex:1,background:"#E2DDD8",border:"1px solid #9A8878",color:"#1A1410",padding:"9px 12px",borderRadius:8,
                         fontFamily:"'Outfit',sans-serif",fontSize:12,outline:"none"}}/>
-                    <button onClick={savePalette} style={{background:"#C8874A",border:"none",color:"#0F0B08",padding:"9px 16px",borderRadius:8,cursor:"pointer",fontFamily:"'Outfit',sans-serif",fontSize:11,fontWeight:700}}>Save</button>
-                    <button onClick={()=>{setNameMode(false);setPaletteName("");}} style={{background:"#1A1008",border:"1px solid #3D2B24",color:"#8C7B72",padding:"9px 12px",borderRadius:8,cursor:"pointer",fontFamily:"'Outfit',sans-serif",fontSize:11}}>✕</button>
+                    <button onClick={savePalette} style={{background:"#B5703A",border:"none",color:"#F5F2EE",padding:"9px 16px",borderRadius:8,cursor:"pointer",fontFamily:"'Outfit',sans-serif",fontSize:11,fontWeight:700}}>Save</button>
+                    <button onClick={()=>{setNameMode(false);setPaletteName("");}} style={{background:"#E2DDD8",border:"1px solid #B8AFA8",color:"#7A6860",padding:"9px 12px",borderRadius:8,cursor:"pointer",fontFamily:"'Outfit',sans-serif",fontSize:11}}>✕</button>
                   </div>
                 ):(
                   <button className="action-btn highlight" onClick={()=>setNameMode(true)}>
@@ -680,7 +896,7 @@ function App(){
 
               {/* EXPORT */}
               <div style={{marginBottom:8}}>
-                <div style={{fontSize:10,color:"#3D2B24",letterSpacing:"0.1em",textTransform:"uppercase",marginBottom:10,fontWeight:600}}>Export</div>
+                <div style={{fontSize:10,color:"#8A6858",letterSpacing:"0.1em",textTransform:"uppercase",marginBottom:10,fontWeight:600}}>Export</div>
                 <div style={{display:"flex",flexDirection:"column",gap:8}}>
                   <button className="action-btn" onClick={()=>{cp(allColors.join(", "));showToast("HEX codes copied!");}}>
                     <span style={{fontSize:13,width:18,textAlign:"center"}}>#</span> Copy HEX codes
@@ -694,8 +910,8 @@ function App(){
                   <button className="action-btn" onClick={()=>downloadPalette(allColors,rule,aiInsight?aiInsight.slice(0,30)+"…":"")}>
                     <span style={{fontSize:13,width:18,textAlign:"center"}}>↓</span> Download palette PNG
                   </button>
-                  <button className="action-btn highlight" onClick={()=>setShowSlides(true)}>
-                    <span style={{fontSize:13,width:18,textAlign:"center"}}>▣</span> How to use in Google Slides
+                  <button className="action-btn highlight" onClick={()=>openSlidesGuide(allColors)}>
+                    <span style={{fontSize:13,width:18,textAlign:"center"}}>▣</span> Open Google Slides Theme Guide
                   </button>
                 </div>
               </div>
@@ -703,149 +919,199 @@ function App(){
           )}
 
           {/* Wordmark */}
-          <div style={{marginTop:"auto",paddingTop:24,borderTop:"1px solid #1A1008"}}>
-            <div style={{fontWeight:800,fontSize:11,letterSpacing:"0.18em",color:"#2A1A10",textTransform:"uppercase"}}>SQUARE CS</div>
-            <div style={{fontWeight:300,fontSize:11,color:"#2A1A10",marginTop:2,letterSpacing:"0.06em"}}>Colour Intelligence</div>
+          <div style={{marginTop:"auto",paddingTop:24,borderTop:"1px solid #E2DDD8"}}>
+            <div style={{fontWeight:800,fontSize:11,letterSpacing:"0.18em",color:T.border2,textTransform:"uppercase"}}>SQUARE CS</div>
+            <div style={{fontWeight:300,fontSize:11,color:T.border2,marginTop:2,letterSpacing:"0.06em"}}>Colour Intelligence</div>
           </div>
         </div>
       </div>
 
       {/* WEBPAGE MOCKUP */}
       {generated&&(
-        <div className="fade-up" style={{borderTop:"1px solid #1A1008",padding:"40px 48px 56px"}}>
+        <div className="fade-up" style={{borderTop:"1px solid #E2DDD8",padding:"40px 48px 56px"}}>
           <div style={{marginBottom:28}}>
-            <div style={{fontSize:10,color:"#5C4A42",letterSpacing:"0.14em",textTransform:"uppercase",fontWeight:600,marginBottom:4}}>◆ Sample Webpage</div>
-            <div style={{fontSize:13,color:"#3D2B24",fontWeight:300,fontStyle:"italic"}}>Your palette applied to a live web layout</div>
+            <div style={{fontSize:10,color:"#8A6858",letterSpacing:"0.14em",textTransform:"uppercase",fontWeight:600,marginBottom:4}}>◆ Sample Webpage</div>
+            <div style={{fontSize:13,color:T.textDim,fontWeight:300,fontStyle:"italic"}}>Colour usage reflects your 60–25–10–4–1 proportions</div>
           </div>
-          <div style={{borderRadius:14,overflow:"hidden",boxShadow:"0 24px 80px rgba(0,0,0,0.6)",border:"1px solid #2A1A10"}}>
-            <div style={{background:"#1A1208",padding:"10px 16px",display:"flex",alignItems:"center",gap:10,borderBottom:"1px solid #2A1A10"}}>
+          <div style={{borderRadius:14,overflow:"hidden",boxShadow:T.mockupShadow,border:`1px solid ${T.border2}`}}>
+            <div style={{background:T.mockupChrome,padding:"10px 16px",display:"flex",alignItems:"center",gap:10,borderBottom:`1px solid ${T.mockupChromeBorder}`}}>
               <div style={{display:"flex",gap:6}}>
                 {["#C0392B","#E67E22","#27AE60"].map((bc,i)=><div key={i} style={{width:10,height:10,borderRadius:"50%",background:bc}}/>)}
               </div>
-              <div style={{flex:1,background:"#0F0B08",borderRadius:6,padding:"5px 12px",display:"flex",alignItems:"center",gap:6}}>
+              <div style={{flex:1,background:T.mockupChromeUrl,borderRadius:6,padding:"5px 12px",display:"flex",alignItems:"center",gap:6}}>
                 <div style={{width:8,height:8,borderRadius:"50%",background:allColors[2]||"#555",opacity:.5}}/>
-                <span style={{fontSize:10,color:"#5C4A42",letterSpacing:"0.04em"}}>squarecs.studio / palette-preview</span>
+                <span style={{fontSize:10,color:"#7A6860",letterSpacing:"0.04em"}}>squarecs.studio / palette-preview</span>
               </div>
             </div>
-            <div style={{background:allColors[0]||"#f8f6f2",fontFamily:"'Outfit',sans-serif"}}>
-              {/* NAV — base colour, very subtle */}
-              <div style={{background:allColors[0],borderBottom:`1px solid ${allColors[2]||"#ccc"}22`,padding:"0 36px",display:"flex",alignItems:"center",justifyContent:"space-between",height:50}}>
-                <div style={{display:"flex",alignItems:"center",gap:8}}>
-                  <div style={{width:24,height:24,borderRadius:5,background:allColors[2]||"#888",opacity:.85}}/>
-                  <span style={{fontSize:12,fontWeight:700,color:lum(allColors[0])>.5?"#222":"#eee",letterSpacing:"0.08em"}}>STUDIO</span>
-                </div>
-                <div style={{display:"flex",gap:24}}>
-                  {["Work","About","Services","Contact"].map(t=>(
-                    <span key={t} style={{fontSize:11,fontWeight:400,color:lum(allColors[0])>.5?"#55555566":"#cccccc66",letterSpacing:"0.04em"}}>{t}</span>
-                  ))}
-                </div>
-                {/* CTA pill — accent colour at 80% opacity */}
-                <div style={{background:allColors[2]||"#888",opacity:.82,color:lum(allColors[2]||"#888")>.5?"#111":"#fff",padding:"7px 16px",borderRadius:40,fontSize:10,fontWeight:600,letterSpacing:"0.06em"}}>Get Started</div>
-              </div>
+            {(()=>{
+              // Map proportion roles to palette colours
+              const P=getProportions(allColors);
+              const dominant  = P[0]?.hex || allColors[0] || "#f5f2ee";   // 60% — bg, nav, page
+              const secondary = P[1]?.hex || allColors[1] || "#e0d8d0";   // 25% — hero bg, card bodies
+              const accent    = P[2]?.hex || allColors[2] || "#b5703a";   // 10% — CTAs, highlights
+              const support   = P[3]?.hex || allColors[3] || "#c8c0b8";   //  4% — borders, dividers
+              const pop       = P[4]?.hex || allColors[4] || "#5c4a42";   //  1% — icons, focal dot
+              const domText   = lum(dominant)>.5 ? "#1a1a1a" : "#f5f5f5";
+              const domTextMd = lum(dominant)>.5 ? "#55555577" : "#cccccc77";
+              const secText   = lum(secondary)>.5 ? "#1a1a1a" : "#f5f5f5";
+              const secTextMd = lum(secondary)>.5 ? "#44444488" : "#ffffffaa";
+              const accText   = lum(accent)>.5 ? "#111" : "#fff";
+              return (
+                <div style={{background:dominant,fontFamily:"'Outfit',sans-serif"}}>
 
-              {/* HERO — very light tint of palette[1], not solid */}
-              <div style={{background:`linear-gradient(160deg,${allColors[1]||"#eee"}28 0%,${allColors[0]||"#f8f6f2"} 55%)`,
-                padding:"44px 36px 40px",display:"grid",gridTemplateColumns:"1fr 1fr",gap:36,alignItems:"center"}}>
-                <div>
-                  {/* Tag — accent at 15% bg, accent text */}
-                  <div style={{display:"inline-flex",alignItems:"center",gap:5,background:`${allColors[2]||"#888"}18`,
-                    border:`1px solid ${allColors[2]||"#888"}30`,
-                    color:allColors[2]||"#888",padding:"3px 10px",borderRadius:40,fontSize:9,fontWeight:600,letterSpacing:"0.1em",marginBottom:14,textTransform:"uppercase"}}>
-                    New Collection
+                  {/* NAV — 60% dominant bg. Support colour as border. Accent as CTA. Pop as logo mark. */}
+                  <div style={{background:dominant,borderBottom:`1px solid ${support}55`,
+                    padding:"0 36px",display:"flex",alignItems:"center",justifyContent:"space-between",height:50}}>
+                    <div style={{display:"flex",alignItems:"center",gap:8}}>
+                      {/* Logo mark — POP colour (1%) — tiny but bold */}
+                      <div style={{width:10,height:10,borderRadius:"50%",background:pop}}/>
+                      <div style={{width:8,height:8,borderRadius:2,background:accent,marginLeft:-4,marginTop:6}}/>
+                      <span style={{fontSize:12,fontWeight:700,color:domText,letterSpacing:"0.08em",marginLeft:4}}>STUDIO</span>
+                    </div>
+                    <div style={{display:"flex",gap:24}}>
+                      {["Work","About","Services","Contact"].map(t=>(
+                        <span key={t} style={{fontSize:10,fontWeight:400,color:domTextMd,letterSpacing:"0.04em"}}>{t}</span>
+                      ))}
+                    </div>
+                    {/* CTA — ACCENT (10%) — solid, full weight */}
+                    <div style={{background:accent,color:accText,padding:"7px 16px",borderRadius:40,fontSize:10,fontWeight:700,letterSpacing:"0.06em"}}>
+                      Get Started
+                    </div>
                   </div>
-                  <div style={{fontSize:28,fontWeight:800,lineHeight:1.1,color:lum(allColors[0])>.5?"#1a1a1a":"#f0f0f0",marginBottom:12,letterSpacing:"-0.02em"}}>
-                    Design with<br/>intention.
-                  </div>
-                  <p style={{fontSize:11,fontWeight:300,lineHeight:1.8,color:lum(allColors[0])>.5?"#666":"#aaa",marginBottom:22,maxWidth:240}}>
-                    Spaces that breathe. Colours that speak. Architecture that endures.
-                  </p>
-                  <div style={{display:"flex",gap:10}}>
-                    {/* Primary CTA — accent solid */}
-                    <div style={{background:allColors[2]||"#888",color:lum(allColors[2]||"#888")>.5?"#111":"#fff",
-                      padding:"10px 20px",borderRadius:7,fontSize:11,fontWeight:700,letterSpacing:"0.06em"}}>View Projects</div>
-                    {/* Ghost CTA — just border */}
-                    <div style={{border:`1.5px solid ${allColors[2]||"#888"}44`,
-                      color:lum(allColors[0])>.5?"#555":"#bbb",
-                      padding:"10px 20px",borderRadius:7,fontSize:11,fontWeight:400}}>Learn More</div>
-                  </div>
-                </div>
-                {/* Hero visual — subtle, low-opacity shapes */}
-                <div style={{position:"relative",height:180}}>
-                  <div style={{position:"absolute",right:0,top:0,width:"82%",height:"90%",borderRadius:14,
-                    background:allColors[1]||"#ddd",opacity:.45,boxShadow:"0 8px 32px rgba(0,0,0,0.08)"}}/>
-                  <div style={{position:"absolute",right:"8%",top:"8%",width:"75%",height:"82%",borderRadius:12,
-                    background:allColors[2]||"#aaa",opacity:.25}}/>
-                  <div style={{position:"absolute",left:"4%",bottom:"8%",width:"44%",height:"52%",borderRadius:10,
-                    background:allColors[3]||allColors[1]||"#bbb",opacity:.55,
-                    border:`2px solid ${allColors[0]||"#fff"}`}}/>
-                  <div style={{position:"absolute",right:"18%",top:"12%",width:28,height:28,borderRadius:"50%",
-                    background:allColors[4]||allColors[2]||"#ccc",opacity:.4}}/>
-                </div>
-              </div>
 
-              {/* CARDS — white bg, accent used only as small strip */}
-              <div style={{padding:"28px 36px",background:lum(allColors[0])>.5?"#ffffff":"#141414"}}>
-                <div style={{fontSize:10,fontWeight:600,letterSpacing:"0.12em",
-                  color:lum(allColors[0])>.5?"#aaaaaa":"#555555",textTransform:"uppercase",marginBottom:16}}>Featured Work</div>
-                <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:12}}>
-                  {[
-                    {label:"Residential", sub:"Interior Design",  accent:allColors[2]},
-                    {label:"Commercial",  sub:"Architecture",      accent:allColors[3]||allColors[2]},
-                    {label:"Hospitality", sub:"Brand & Space",     accent:allColors[4]||allColors[1]},
-                  ].map((card,i)=>(
-                    <div key={i} style={{borderRadius:8,overflow:"hidden",border:`1px solid ${lum(allColors[0])>.5?"#e8e8e8":"#2a2a2a"}`}}>
-                      {/* Coloured top strip — palette colour at reduced opacity */}
-                      <div style={{height:56,background:card.accent||"#ccc",opacity:.55}}/>
-                      <div style={{padding:"10px 12px",background:lum(allColors[0])>.5?"#fff":"#1c1c1c"}}>
-                        <div style={{fontSize:11,fontWeight:700,color:lum(allColors[0])>.5?"#222":"#eee",marginBottom:2}}>{card.label}</div>
-                        <div style={{fontSize:9,color:lum(allColors[0])>.5?"#aaa":"#666",marginBottom:7}}>{card.sub}</div>
-                        <div style={{height:2,borderRadius:1,background:card.accent||"#ccc",width:"30%",opacity:.6}}/>
+                  {/* HERO — SECONDARY (25%) as bg. Dominant bleeds in. Accent for tag + CTA. */}
+                  <div style={{background:secondary,padding:"44px 36px 40px",
+                    display:"grid",gridTemplateColumns:"1fr 1fr",gap:36,alignItems:"center"}}>
+                    <div>
+                      {/* Tag — ACCENT bg at 18% opacity */}
+                      <div style={{display:"inline-flex",alignItems:"center",gap:4,
+                        background:`${accent}22`,border:`1px solid ${accent}44`,
+                        color:accent,padding:"3px 10px",borderRadius:40,
+                        fontSize:9,fontWeight:700,letterSpacing:"0.1em",marginBottom:14,textTransform:"uppercase"}}>
+                        ◆ New Collection
+                      </div>
+                      <div style={{fontSize:28,fontWeight:800,lineHeight:1.1,color:secText,
+                        marginBottom:12,letterSpacing:"-0.02em"}}>
+                        Design with<br/>intention.
+                      </div>
+                      <p style={{fontSize:11,fontWeight:300,lineHeight:1.8,color:secTextMd,
+                        marginBottom:22,maxWidth:240}}>
+                        Spaces that breathe. Colours that speak. Architecture that endures beyond the moment it was made.
+                      </p>
+                      <div style={{display:"flex",gap:10,alignItems:"center"}}>
+                        {/* Primary CTA — ACCENT (10%) solid */}
+                        <div style={{background:accent,color:accText,padding:"10px 20px",
+                          borderRadius:7,fontSize:11,fontWeight:700,letterSpacing:"0.06em"}}>
+                          View Projects
+                        </div>
+                        {/* Ghost CTA — SUPPORT border (4%) */}
+                        <div style={{border:`1.5px solid ${support}`,color:secTextMd,
+                          padding:"10px 20px",borderRadius:7,fontSize:11,fontWeight:400}}>
+                          Learn More
+                        </div>
                       </div>
                     </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* STATS — very light tint, not solid accent */}
-              <div style={{background:`${allColors[2]||"#888"}14`,borderTop:`1px solid ${allColors[2]||"#888"}18`,
-                borderBottom:`1px solid ${allColors[2]||"#888"}18`,
-                padding:"16px 36px",display:"flex",justifyContent:"space-around",alignItems:"center"}}>
-                {[["18+","Years"],["240","Projects"],["12","Awards"],["4","Countries"]].map(([n,l],i)=>(
-                  <div key={i} style={{textAlign:"center"}}>
-                    <div style={{fontSize:20,fontWeight:800,lineHeight:1,color:allColors[2]||"#888"}}>{n}</div>
-                    <div style={{fontSize:9,fontWeight:400,letterSpacing:"0.1em",textTransform:"uppercase",marginTop:3,
-                      color:lum(allColors[0])>.5?"#aaa":"#666"}}>{l}</div>
+                    {/* Hero image block — DOMINANT large shape (60%), ACCENT overlay, POP dot */}
+                    <div style={{position:"relative",height:190}}>
+                      {/* Large bg shape — DOMINANT */}
+                      <div style={{position:"absolute",right:0,top:0,width:"88%",height:"95%",
+                        borderRadius:16,background:dominant,
+                        boxShadow:`0 12px 40px ${support}66`}}/>
+                      {/* Accent stripe — ACCENT (10%) — vertical strip */}
+                      <div style={{position:"absolute",right:"14%",top:"10%",width:"6%",height:"80%",
+                        borderRadius:4,background:accent,opacity:.9}}/>
+                      {/* Support card overlay */}
+                      <div style={{position:"absolute",left:"2%",bottom:"6%",width:"46%",height:"55%",
+                        borderRadius:10,background:secondary,
+                        border:`2px solid ${support}44`,
+                        boxShadow:"0 8px 24px rgba(0,0,0,0.1)"}}>
+                        {/* Pop dot inside card — POP (1%) */}
+                        <div style={{position:"absolute",top:10,right:10,width:10,height:10,
+                          borderRadius:"50%",background:pop}}/>
+                        <div style={{position:"absolute",bottom:12,left:12,right:12}}>
+                          <div style={{height:4,borderRadius:2,background:accent,width:"60%",marginBottom:4}}/>
+                          <div style={{height:3,borderRadius:2,background:`${support}88`,width:"80%"}}/>
+                        </div>
+                      </div>
+                    </div>
                   </div>
-                ))}
-              </div>
 
-              {/* FOOTER — base colour, very quiet */}
-              <div style={{background:allColors[0],borderTop:`1px solid ${allColors[2]||"#ccc"}18`,
-                padding:"14px 36px",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-                <span style={{fontSize:9,fontWeight:600,letterSpacing:"0.14em",textTransform:"uppercase",
-                  color:lum(allColors[0])>.5?"#bbb":"#444"}}>© SQUARE CS 2025</span>
-                <div style={{display:"flex",gap:16}}>
-                  {["Instagram","Behance","LinkedIn"].map(s=>(
-                    <span key={s} style={{fontSize:9,color:lum(allColors[0])>.5?"#ccc":"#444"}}>{s}</span>
-                  ))}
+                  {/* CARDS — DOMINANT bg (60%). Cards use SECONDARY fill. ACCENT top strip. SUPPORT borders. */}
+                  <div style={{padding:"28px 36px",background:dominant}}>
+                    <div style={{fontSize:10,fontWeight:600,letterSpacing:"0.12em",
+                      color:`${domText}55`,textTransform:"uppercase",marginBottom:16}}>Featured Work</div>
+                    <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:12}}>
+                      {[
+                        {label:"Residential", sub:"Interior Design",  stripe:accent},
+                        {label:"Commercial",  sub:"Architecture",      stripe:support},
+                        {label:"Hospitality", sub:"Brand & Space",     stripe:pop},
+                      ].map((card,i)=>(
+                        <div key={i} style={{borderRadius:8,overflow:"hidden",
+                          border:`1px solid ${support}55`,background:secondary}}>
+                          {/* Accent stripe — each uses a different proportion colour to show all 5 */}
+                          <div style={{height:6,background:card.stripe}}/>
+                          <div style={{padding:"12px 12px 14px"}}>
+                            <div style={{fontSize:11,fontWeight:700,color:secText,marginBottom:2}}>{card.label}</div>
+                            <div style={{fontSize:9,color:secTextMd,marginBottom:10}}>{card.sub}</div>
+                            {/* Mini proportion reminder — tiny bar */}
+                            <div style={{display:"flex",gap:1,height:3,borderRadius:2,overflow:"hidden"}}>
+                              <div style={{flex:60,background:dominant}}/>
+                              <div style={{flex:25,background:secondary}}/>
+                              <div style={{flex:10,background:accent}}/>
+                              <div style={{flex:4, background:support}}/>
+                              <div style={{flex:1, background:pop}}/>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* STATS — SECONDARY band (25%). Numbers in ACCENT. Labels in SUPPORT. */}
+                  <div style={{background:secondary,padding:"18px 36px",
+                    display:"flex",justifyContent:"space-around",alignItems:"center"}}>
+                    {[["18+","Years"],["240","Projects"],["12","Awards"],["4","Countries"]].map(([n,l],i)=>(
+                      <div key={i} style={{textAlign:"center"}}>
+                        {/* Number — ACCENT colour (10%) */}
+                        <div style={{fontSize:22,fontWeight:800,lineHeight:1,color:accent}}>{n}</div>
+                        {/* Label — SUPPORT colour (4%) */}
+                        <div style={{fontSize:9,fontWeight:500,letterSpacing:"0.1em",textTransform:"uppercase",
+                          marginTop:3,color:support}}>{l}</div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* FOOTER — DOMINANT bg (60%). Support text. Pop dot. */}
+                  <div style={{background:dominant,borderTop:`1px solid ${support}44`,
+                    padding:"14px 36px",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+                    <div style={{display:"flex",alignItems:"center",gap:6}}>
+                      {/* Pop dot in footer — 1% */}
+                      <div style={{width:6,height:6,borderRadius:"50%",background:pop}}/>
+                      <span style={{fontSize:9,fontWeight:600,letterSpacing:"0.14em",textTransform:"uppercase",
+                        color:`${domText}55`}}>© SQUARE CS 2025</span>
+                    </div>
+                    <div style={{display:"flex",gap:16}}>
+                      {["Instagram","Behance","LinkedIn"].map(s=>(
+                        <span key={s} style={{fontSize:9,color:`${domText}44`}}>{s}</span>
+                      ))}
+                    </div>
+                  </div>
+
                 </div>
-              </div>
-            </div>
+              );
+            })()}
           </div>
         </div>
       )}
 
-      {/* GOOGLE SLIDES MODAL */}
-      {showSlides&&<SlidesModal colors={allColors} onClose={()=>setShowSlides(false)}/>}
 
       {/* TOAST */}
-      <div style={{position:"fixed",bottom:32,left:"50%",transform:`translateX(-50%) translateY(${toast.visible?0:20}px)`,opacity:toast.visible?1:0,transition:"all .3s cubic-bezier(.4,0,.2,1)",background:"#1A1008",color:"#F5F0EB",padding:"10px 22px",borderRadius:40,fontSize:13,letterSpacing:"0.04em",boxShadow:"0 8px 32px rgba(0,0,0,0.25)",pointerEvents:"none",zIndex:1000}}>
+      <div style={{position:"fixed",bottom:32,left:"50%",transform:`translateX(-50%) translateY(${toast.visible?0:20}px)`,opacity:toast.visible?1:0,transition:"all .3s cubic-bezier(.4,0,.2,1)",background:"#E2DDD8",color:"#1A1410",padding:"10px 22px",borderRadius:40,fontSize:13,letterSpacing:"0.04em",boxShadow:"0 8px 32px rgba(0,0,0,0.25)",pointerEvents:"none",zIndex:1000}}>
         {toast.message}
       </div>
     </div>
   );
 }
-
 
     const root = ReactDOM.createRoot(document.getElementById('root'));
     root.render(<App />);
