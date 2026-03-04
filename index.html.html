@@ -88,13 +88,18 @@ function applyTone(h,s,l,toneId){
   const nl=Math.max(0,Math.min(96,l+t.lShift));
   return[h,ns,nl];
 }
-function generateSuggestions(colors,rule,toneId="balanced"){
+function generateSuggestions(colors,rule,toneId="balanced",seed=0){
   if(!colors.length)return[];
   const slots=Math.max(0,5-colors.length); // total palette capped at 5
   if(slots===0)return[];
   const avg=colors.reduce((a,c)=>{const[h,s,l]=hexToHsl(c);return[a[0]+h,a[1]+s,a[2]+l];},[0,0,0]).map(v=>v/colors.length);
   const[h,s,l]=avg;
-  const Tx=([hh,ss,ll])=>hslToHex(...applyTone(hh,ss,ll,toneId));
+  // Seed-based variation: rotate hue ±15°, shift lightness ±8, vary saturation ±15%
+  // Uses deterministic offsets so same seed always gives same result
+  const hShift = (seed%7)*5 - 15;          // -15 to +15 in steps of 5
+  const lShift = (seed%5)*4 - 8;           // -8  to +8  in steps of 4
+  const sMult  = 1 + ((seed%3)-1)*0.15;    // 0.85, 1.0, 1.15
+  const Tx=([hh,ss,ll])=>hslToHex(...applyTone(hh+hShift, ss*sMult, ll+lShift, toneId));
   const all=[];
   switch(rule){
     case"complementary":all.push(Tx([h+180,s,l]),Tx([h+180,s*.7,Math.min(l+15,90)]),Tx([h+180,s*.4,Math.min(l+25,95)]));break;
@@ -486,6 +491,7 @@ function App(){
   const[dark,setDark]=useState(false);
   const T=dark?DARK:LIGHT;
   const[selected,setSelected]=useState([]);
+  const[seed,setSeed]=useState(0);
   const[rule,setRule]=useState("complementary");
   const[tone,setTone]=useState("balanced");
   const[suggestions,setSuggestions]=useState([]);
@@ -517,15 +523,15 @@ function App(){
     timerRef.current=setTimeout(()=>setToast(t=>({...t,visible:false})),2200);
   };
 
-  // Auto-regenerate palette instantly when tone, rule, or selected colours change
-  // AI insight only re-fires if colours actually changed (not just tone/rule tweak)
+  // Auto-regenerate palette instantly when tone, rule, selected colours, or seed changes
+  // AI insight only re-fires if colours actually changed (not just tone/rule/seed tweak)
   const prevSelectedRef=useRef([]);
   useEffect(()=>{
     if(!selected.length) return;
-    const sugg=generateSuggestions(selected,rule,tone);
+    const sugg=generateSuggestions(selected,rule,tone,seed);
     setSuggestions(sugg);
     setGenerated(true);
-    // Only re-fire AI insight when selected colours change, not every tone/rule tweak
+    // Only re-fire AI insight when selected colours change, not every tone/rule/seed tweak
     const coloursChanged=JSON.stringify(selected)!==JSON.stringify(prevSelectedRef.current);
     if(coloursChanged){
       prevSelectedRef.current=selected;
@@ -539,7 +545,7 @@ function App(){
         setAiInsight(d.content?.map(b=>b.text||"").join("").trim()||"");
       }).catch(()=>{}).finally(()=>setInsightLoading(false));
     }
-  },[tone,rule,selected]);
+  },[tone,rule,selected,seed]);
 
   const toggleColor=color=>{
     setSelected(prev=>{
@@ -547,27 +553,15 @@ function App(){
       if(prev.length>=4)return prev;
       return[...prev,color];
     });
+    setSeed(0);
     setGenerated(false);setSuggestions([]);setAiInsight("");
   };
 
-  const handleGenerate=useCallback(async()=>{
+  const handleGenerate=useCallback(()=>{
     if(!selected.length)return;
-    setLoading(true);setGenerated(false);setAiInsight("");
-    const sugg=generateSuggestions(selected,rule,tone);
-    setSuggestions(sugg);
-    setGenerated(true);setLoading(false);
-    setInsightLoading(true);
-    const prompt=`You are a colour consultant for architects and interior designers. Base colours: ${selected.join(", ")}. Harmony rule: ${rule}. Suggested additions: ${sugg.join(", ")}. In 2-3 sentences, describe the mood/atmosphere this palette creates and suggest ONE ideal use case (e.g. a hotel lobby, a residential living room, a product UI). Be evocative and specific. Use design language. No hex values.`;
-    try{
-      const res=await fetch("https://api.anthropic.com/v1/messages",{
-        method:"POST",headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:1000,messages:[{role:"user",content:prompt}]})
-      });
-      const d=await res.json();
-      setAiInsight(d.content?.map(b=>b.text||"").join("").trim()||"");
-    }catch{}
-    setInsightLoading(false);
-  },[selected,rule,tone]);
+    // Increment seed → triggers the useEffect above with a new variation
+    setSeed(s=>s+1);
+  },[selected]);
 
   const allColors=[...selected,...suggestions];
 
@@ -771,9 +765,14 @@ function App(){
 
           {/* Generate */}
           <div style={{marginBottom:40}}>
-            <button className="gen-btn" onClick={handleGenerate} disabled={selected.length===0||loading}>
-              {loading?"Analysing…":generated?"Regenerate & Refresh AI ↺":"Generate Palette →"}
+            <button className="gen-btn" onClick={handleGenerate} disabled={selected.length===0}>
+              {generated ? `Try Another Variation ↺  ${seed>0?`(#${seed+1})`:""}` : "Generate Palette →"}
             </button>
+            {seed>0&&generated&&(
+              <div style={{marginTop:8,fontSize:10,color:T.textDim,fontStyle:"italic",textAlign:"center"}}>
+                Variation {seed+1} — same rule & tone, different harmony angle
+              </div>
+            )}
           </div>
 
           <div className="divider" style={{marginBottom:32}}/>
